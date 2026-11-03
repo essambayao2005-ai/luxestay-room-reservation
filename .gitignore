@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+*.pyc
+media/
+legacy_sirwarz/
+.env
