@@ -70,7 +70,8 @@ class Reservation(models.Model):
         errors = {}
         if self.start_time and self.end_time and self.end_time <= self.start_time:
             errors['end_time'] = 'End time must be later than the start time.'
-        if self.reservation_date and self._state.adding and self.reservation_date < timezone.localdate():
+        if (self.reservation_date and (self._state.adding or self.status == 'pending')
+                and self.reservation_date < timezone.localdate()):
             errors['reservation_date'] = 'The date cannot be in the past.'
         if self.room_id and self.num_attendees and self.num_attendees > self.room.capacity:
             errors['num_attendees'] = f'This room only fits {self.room.capacity} people.'
