@@ -139,3 +139,4 @@ def decline_reservation(reservation, admin_user, remarks):
         res.processed_by = admin_user
         res.save()
         return res
+

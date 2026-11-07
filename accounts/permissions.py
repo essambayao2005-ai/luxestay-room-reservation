@@ -53,3 +53,4 @@ def get_profile(user):
         return getattr(user, 'profile', None)
     except Exception:
         return None
+

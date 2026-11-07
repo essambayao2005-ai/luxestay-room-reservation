@@ -104,3 +104,4 @@ def current_status(room, now=None):
         return f"In use until {formatted_time}"
 
     return "Free now"
+
