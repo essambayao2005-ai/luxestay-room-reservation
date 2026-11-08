@@ -1,0 +1,984 @@
+/* ==========================================================================
+   CAMPUS SCHEDULER DESIGN SYSTEM (MSU-SND)
+   A modern, minimal, trustworthy design system with Frosted Glassmorphism.
+   Inter typography, MSU Maroon & Champagne accents, Warm Gray canvas.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. COLOR TOKENS & SYSTEM VARIABLES
+   -------------------------------------------------------------------------- */
+:root {
+  /* Brand Tokens */
+  --maroon: #641E2B;
+  --white: #FFFFFF;
+  --warm-gray: #F5F3F0;
+  --charcoal: #5F6368;
+  --champagne: #E9DDC8;
+
+  /* Derived Neutrals & States */
+  --maroon-dark: #4E1722;
+  --maroon-tint: rgba(100, 30, 43, 0.08);
+  --ink: #1F2023;
+  --border: #E7E2DB;
+  --border-light: rgba(231, 226, 219, 0.7);
+
+  /* Status Tokens */
+  --status-available-bg: #E6F1EA;
+  --status-available-text: #2F6B4A;
+  --status-occupied-bg: #F4E6E8;
+  --status-occupied-text: #641E2B;
+  --status-pending-bg: #E9DDC8;
+  --status-pending-text: #7A5A1E;
+  --status-cancelled-bg: #ECEAE6;
+  --status-cancelled-text: #5F6368;
+  --status-conflict-bg: #FFF3D6;
+  --status-conflict-text: #8A5A00;
+
+  /* Geometry & Elevation */
+  --radius-card: 20px;
+  --radius-panel: 16px;
+  --radius-control: 12px;
+  --radius-pill: 50px;
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(31, 32, 35, 0.06);
+  --shadow-glass: 0 8px 32px rgba(100, 30, 43, 0.08);
+  --shadow-inset-glass: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+
+  /* Glass Surface Recipes */
+  --glass-surface-bg: rgba(255, 255, 255, 0.70);
+  --glass-surface-border: rgba(255, 255, 255, 0.65);
+  --glass-readability-bg: rgba(255, 255, 255, 0.94);
+  --sidebar-glass-bg: rgba(100, 30, 43, 0.94);
+  --sidebar-width: 260px;
+  --topbar-height: 64px;
+
+  /* Transitions */
+  --transition-fast: 180ms ease-out;
+  --transition-standard: 250ms ease-out;
+}
+
+/* --------------------------------------------------------------------------
+   2. GLOBAL BASE & TYPOGRAPHY
+   -------------------------------------------------------------------------- */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  background-color: var(--warm-gray);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, .h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+h2, .h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+h3, .h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.4rem;
+}
+
+p, .text-body {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+small, .text-small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--charcoal);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   3. AMBIENT BACKGROUND FLOATING SHAPES
+   -------------------------------------------------------------------------- */
+.ambient-background-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ambient-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform;
+}
+
+.ambient-blob-1 {
+  top: -100px;
+  right: -50px;
+  width: 500px;
+  height: 500px;
+  background: rgba(100, 30, 43, 0.08); /* maroon tint */
+  animation: blobDriftOne 26s infinite alternate ease-in-out;
+}
+
+.ambient-blob-2 {
+  bottom: -150px;
+  left: 15%;
+  width: 600px;
+  height: 600px;
+  background: rgba(233, 221, 200, 0.45); /* champagne tint */
+  animation: blobDriftTwo 32s infinite alternate ease-in-out;
+}
+
+.ambient-blob-3 {
+  top: 40%;
+  right: 20%;
+  width: 400px;
+  height: 400px;
+  background: rgba(100, 30, 43, 0.05); /* subtle maroon */
+  animation: blobDriftThree 22s infinite alternate ease-in-out;
+}
+
+@keyframes blobDriftOne {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(-40px, 60px) scale(1.08); }
+  100% { transform: translate(30px, 100px) scale(0.95); }
+}
+
+@keyframes blobDriftTwo {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(50px, -40px) scale(1.05); }
+  100% { transform: translate(-30px, -70px) scale(0.92); }
+}
+
+@keyframes blobDriftThree {
+  0%   { transform: translate(0, 0); }
+  100% { transform: translate(-50px, 30px) scale(1.1); }
+}
+
+/* --------------------------------------------------------------------------
+   4. FROSTED GLASS SURFACES (.glass)
+   -------------------------------------------------------------------------- */
+.glass,
+.glass-panel,
+.glass-card {
+  background: var(--glass-surface-bg);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid var(--glass-surface-border);
+  box-shadow: var(--shadow-glass), var(--shadow-inset-glass);
+  border-radius: var(--radius-card);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.glass-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(100, 30, 43, 0.12), var(--shadow-inset-glass);
+}
+
+/* Solid white surface for high-readability zones (forms, inputs, long data) */
+.glass-readability {
+  background: var(--glass-readability-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+/* --------------------------------------------------------------------------
+   5. APP SHELL LAYOUT
+   -------------------------------------------------------------------------- */
+.app-wrapper {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Desktop Sidebar */
+.app-sidebar {
+  width: var(--sidebar-width);
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1020;
+  background: var(--sidebar-glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  color: var(--white);
+  transition: transform var(--transition-standard);
+}
+
+/* Main Content Area */
+.app-main {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left var(--transition-standard);
+}
+
+.app-container {
+  padding: 28px 36px 48px;
+  flex: 1;
+  width: 100%;
+  max-width: 1360px;
+}
+
+/* --------------------------------------------------------------------------
+   6. SIDEBAR COMPONENT & ROLE NAVIGATION
+   -------------------------------------------------------------------------- */
+.sidebar-header {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Logo on white rounded chip to guarantee crisp AA contrast */
+.sidebar-logo-chip {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  background-color: var(--white);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  padding: 4px;
+}
+
+.sidebar-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.sidebar-brand-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--white);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.sidebar-brand-caption {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--champagne);
+  margin: 2px 0 0;
+  line-height: 1.3;
+}
+
+/* Navigation Links */
+.sidebar-nav {
+  padding: 16px 12px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(233, 221, 200, 0.65);
+  padding: 12px 14px 6px;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-left-color var(--transition-fast);
+}
+
+.sidebar-link i {
+  font-size: 18px;
+  color: rgba(233, 221, 200, 0.85);
+  transition: transform var(--transition-fast);
+}
+
+.sidebar-link:hover {
+  color: var(--white);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-link:hover i {
+  transform: translateX(2px);
+}
+
+/* Active navigation item with 3px champagne marker and darker background */
+.sidebar-link.active {
+  color: var(--white);
+  background-color: var(--maroon-dark);
+  border-left: 3px solid var(--champagne);
+  font-weight: 600;
+}
+
+.sidebar-link.active i {
+  color: var(--white);
+}
+
+.sidebar-badge-count {
+  margin-left: auto;
+  background-color: var(--champagne);
+  color: var(--maroon-dark);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+/* Sidebar Footer User Chip */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.user-avatar-circle {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  background-color: var(--champagne);
+  color: var(--maroon);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-chip-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-chip-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-chip-role {
+  font-size: 11px;
+  color: var(--champagne);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-signout-link {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.btn-signout-link:hover {
+  color: var(--white);
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   7. TOPBAR COMPONENT
+   -------------------------------------------------------------------------- */
+.app-topbar {
+  height: var(--topbar-height);
+  padding: 0 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1010;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar-page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.today-chip {
+  background-color: var(--champagne);
+  color: var(--maroon-dark);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.today-chip i {
+  font-size: 13px;
+  color: var(--maroon);
+}
+
+.topbar-menu-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 20px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.topbar-mobile-logo {
+  display: none;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+/* --------------------------------------------------------------------------
+   8. BUTTONS, BADGES, & STATUS PILLS
+   -------------------------------------------------------------------------- */
+.btn {
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 18px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary,
+.btn-maroon {
+  background-color: var(--maroon);
+  color: var(--white);
+  border-color: var(--maroon);
+}
+
+.btn-primary:hover,
+.btn-maroon:hover {
+  background-color: var(--maroon-dark);
+  border-color: var(--maroon-dark);
+  color: var(--white);
+}
+
+.btn-secondary {
+  background-color: var(--white);
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  background-color: var(--warm-gray);
+  border-color: #d8d2c8;
+  color: var(--ink);
+}
+
+.btn-outline-maroon {
+  background-color: transparent;
+  color: var(--maroon);
+  border-color: var(--maroon);
+}
+
+.btn-outline-maroon:hover {
+  background-color: var(--maroon-tint);
+  color: var(--maroon-dark);
+  border-color: var(--maroon-dark);
+}
+
+/* Visible Focus State (WCAG AA Compliance) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--maroon) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px var(--champagne) !important;
+}
+
+/* Status Pills (Soft Background, Dark Text) */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.status-pill::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.status-available,
+.status-approved {
+  background-color: var(--status-available-bg);
+  color: var(--status-available-text);
+}
+
+.status-occupied,
+.status-declined {
+  background-color: var(--status-occupied-bg);
+  color: var(--status-occupied-text);
+}
+
+.status-pending {
+  background-color: var(--status-pending-bg);
+  color: var(--status-pending-text);
+}
+
+.status-cancelled {
+  background-color: var(--status-cancelled-bg);
+  color: var(--status-cancelled-text);
+}
+
+.status-conflict {
+  background-color: var(--status-conflict-bg);
+  color: var(--status-conflict-text);
+}
+
+/* --------------------------------------------------------------------------
+   9. FORM CONTROLS & INPUTS
+   -------------------------------------------------------------------------- */
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.form-control,
+.form-select {
+  min-height: 42px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background-color: var(--glass-readability-bg);
+  color: var(--ink);
+  font-size: 14px;
+  padding: 8px 14px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--maroon);
+  box-shadow: 0 0 0 3px var(--maroon-tint);
+  background-color: var(--white);
+}
+
+/* --------------------------------------------------------------------------
+   10. TABLES & CARDS
+   -------------------------------------------------------------------------- */
+.custom-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--white);
+}
+
+.custom-table thead th {
+  background-color: var(--warm-gray);
+  color: var(--charcoal);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.custom-table tbody td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 14px;
+  background-color: var(--white);
+  transition: background-color var(--transition-fast);
+}
+
+.custom-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.custom-table tbody tr:hover td {
+  background-color: var(--maroon-tint);
+}
+
+/* --------------------------------------------------------------------------
+   11. STAT CARDS & COUNT-UP
+   -------------------------------------------------------------------------- */
+.stat-card {
+  padding: 22px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.stat-icon-chip {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  border-radius: 14px;
+  background-color: var(--champagne);
+  color: var(--maroon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--charcoal);
+  margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   12. EMPTY STATE
+   -------------------------------------------------------------------------- */
+.empty-state-panel {
+  text-align: center;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: var(--champagne);
+  color: var(--maroon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 16px;
+}
+
+.empty-state-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.empty-state-desc {
+  font-size: 14px;
+  color: var(--charcoal);
+  max-width: 420px;
+  margin: 0 auto 20px;
+}
+
+/* --------------------------------------------------------------------------
+   13. ALERTS & MESSAGES
+   -------------------------------------------------------------------------- */
+.toast-container-custom {
+  position: fixed;
+  top: 76px;
+  right: 28px;
+  z-index: 1090;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 380px;
+}
+
+.custom-alert {
+  border-radius: var(--radius-panel);
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow-subtle);
+  animation: slideInRight 220ms ease-out forwards;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.custom-alert-success {
+  background-color: #E6F1EA;
+  color: #2F6B4A;
+  border-color: #C8E3D2;
+}
+
+.custom-alert-error,
+.custom-alert-danger {
+  background-color: #F4E6E8;
+  color: #641E2B;
+  border-color: #E6CCD0;
+}
+
+.custom-alert-warning {
+  background-color: #FFF3D6;
+  color: #8A5A00;
+  border-color: #FEE4A0;
+}
+
+.custom-alert-info {
+  background-color: #E9DDC8;
+  color: #7A5A1E;
+  border-color: #D8C7A7;
+}
+
+/* Page fade-in */
+.fade-in-content {
+  animation: pageFadeIn 200ms ease-out forwards;
+}
+
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   14. RESPONSIVE OFFCANVAS (MOBILE BREAKPOINTS)
+   -------------------------------------------------------------------------- */
+@media (max-width: 991.98px) {
+  .app-sidebar {
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+  }
+
+  .app-sidebar.show {
+    transform: translateX(0);
+  }
+
+  .app-main {
+    margin-left: 0;
+  }
+
+  .app-topbar {
+    padding: 0 16px;
+  }
+
+  .topbar-menu-toggle {
+    display: inline-flex;
+  }
+
+  .topbar-mobile-logo {
+    display: block;
+  }
+
+  .app-container {
+    padding: 16px;
+  }
+}
+
+/* Sidebar Backdrop on Mobile */
+.sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(31, 32, 35, 0.4);
+  z-index: 1015;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-standard), visibility var(--transition-standard);
+}
+
+.sidebar-backdrop.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* --------------------------------------------------------------------------
+   15. ACCESSIBILITY & PREFERS-REDUCED-MOTION
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .ambient-blob-1,
+  .ambient-blob-2,
+  .ambient-blob-3 {
+    animation: none !important;
+  }
+}
+
+/* Fallback for Browsers Without backdrop-filter */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass,
+  .glass-panel,
+  .glass-card {
+    background: rgba(255, 255, 255, 0.96) !important;
+  }
+
+  .app-sidebar {
+    background: rgba(100, 30, 43, 0.98) !important;
+  }
+
+  .app-topbar {
+    background: rgba(255, 255, 255, 0.98) !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   16. PRINT STYLESHEET
+   -------------------------------------------------------------------------- */
+@media print {
+  .app-sidebar,
+  .app-topbar,
+  .btn,
+  .ambient-background-layer,
+  .sidebar-backdrop,
+  .toast-container-custom {
+    display: none !important;
+  }
+
+  .app-main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  .app-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .glass,
+  .glass-panel,
+  .glass-card {
+    background: #fff !important;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    backdrop-filter: none !important;
+  }
+
+  .custom-table {
+    border: 1px solid #000 !important;
+  }
+
+  .custom-table th,
+  .custom-table td {
+    border-bottom: 1px solid #000 !important;
+    color: #000 !important;
+  }
+}
+
