@@ -621,3 +621,152 @@ class SidebarTopbarRenderTests(TestCase):
         html = self._render('partials/sidebar.html', req)
         self.assertIn('Administrator', html)
         self.assertNotIn('NoReverseMatch', html)
+
+
+# ---------------------------------------------------------------------------
+# Room List View & Search Tests (Phase 3B)
+# ---------------------------------------------------------------------------
+
+class RoomListViewTests(TestCase):
+    """
+    Integration tests for room_list view, availability search form,
+    available-only filter, building/capacity filters, validation errors,
+    and visitor privacy guarantees.
+    """
+
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username='view_tester_staff', password='pass', is_staff=True
+        )
+        self.student_user = User.objects.create_user(
+            username='secret_requester_john', password='pass'
+        )
+
+        self.it_lab = Room.objects.create(
+            name='IT Test Lab',
+            building='IT Building',
+            room_type='laboratory',
+            capacity=30,
+            is_active=True,
+        )
+        self.cs_lecture = Room.objects.create(
+            name='CS Lecture Hall',
+            building='CS Building',
+            room_type='lecture',
+            capacity=60,
+            is_active=True,
+        )
+        self.inactive_room = Room.objects.create(
+            name='Old Storage',
+            building='Storage',
+            room_type='conference',
+            capacity=10,
+            is_active=False,
+        )
+
+        self.tomorrow = timezone.localdate() + datetime.timedelta(days=1)
+        self.secret_purpose = "Confidential Departmental Meeting XYZ"
+
+        # Approved reservation on IT Test Lab tomorrow 09:00 - 11:00
+        Reservation.objects.create(
+            room=self.it_lab,
+            requester=self.student_user,
+            processed_by=self.staff_user,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(11, 0),
+            purpose=self.secret_purpose,
+            num_attendees=25,
+            status='approved',
+        )
+
+    def test_room_list_public_access_and_renders_active_rooms(self):
+        """Anonymous visitor can access room list; active rooms are displayed, inactive excluded."""
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'rooms/room_list.html')
+        content = response.content.decode()
+        self.assertIn('IT Test Lab', content)
+        self.assertIn('CS Lecture Hall', content)
+        self.assertNotIn('Old Storage', content)
+
+    def test_room_list_slot_search_marks_occupied_and_orders_available_first(self):
+        """Searching a slot overlapping an approved booking marks the room Occupied and lists available first."""
+        date_str = self.tomorrow.isoformat()
+        response = self.client.get(
+            f'/?date={date_str}&start_time=10:00&end_time=12:00'
+        )
+        self.assertEqual(response.status_code, 200)
+        rooms = list(response.context['rooms'])
+        self.assertEqual(len(rooms), 2)
+        # CS Lecture Hall is free (available first)
+        self.assertEqual(rooms[0].name, 'CS Lecture Hall')
+        self.assertFalse(rooms[0].is_occupied)
+        # IT Test Lab overlaps (occupied second)
+        self.assertEqual(rooms[1].name, 'IT Test Lab')
+        self.assertTrue(rooms[1].is_occupied)
+
+        content = response.content.decode()
+        self.assertIn('Occupied for slot', content)
+        self.assertIn('Available for slot', content)
+
+    def test_room_list_available_only_filter(self):
+        """When available_only=on, occupied rooms are excluded from the result list."""
+        date_str = self.tomorrow.isoformat()
+        response = self.client.get(
+            f'/?date={date_str}&start_time=10:00&end_time=12:00&available_only=on'
+        )
+        self.assertEqual(response.status_code, 200)
+        rooms = list(response.context['rooms'])
+        self.assertEqual(len(rooms), 1)
+        self.assertEqual(rooms[0].name, 'CS Lecture Hall')
+        self.assertNotIn('IT Test Lab', response.content.decode())
+
+    def test_room_list_building_and_capacity_filters(self):
+        """Filtering by campus building and minimum capacity filters rooms properly."""
+        # Building filter
+        res_bldg = self.client.get('/?building=CS+Building')
+        self.assertEqual(res_bldg.status_code, 200)
+        self.assertEqual(len(res_bldg.context['rooms']), 1)
+        self.assertEqual(res_bldg.context['rooms'][0].name, 'CS Lecture Hall')
+
+        # Capacity filter (capacity >= 50)
+        res_cap = self.client.get('/?min_capacity=50')
+        self.assertEqual(res_cap.status_code, 200)
+        self.assertEqual(len(res_cap.context['rooms']), 1)
+        self.assertEqual(res_cap.context['rooms'][0].name, 'CS Lecture Hall')
+
+    def test_room_list_form_validation_errors_displayed(self):
+        """Friendly validation messages appear for past dates and end time <= start time."""
+        # Past date
+        res_past = self.client.get(
+            '/?date=2020-01-01&start_time=09:00&end_time=11:00'
+        )
+        self.assertEqual(res_past.status_code, 200)
+        self.assertIn('Past dates cannot be searched', res_past.content.decode())
+
+        # End time before start time
+        date_str = self.tomorrow.isoformat()
+        res_time = self.client.get(
+            f'/?date={date_str}&start_time=14:00&end_time=10:00'
+        )
+        self.assertEqual(res_time.status_code, 200)
+        self.assertIn('End time must be later than start time', res_time.content.decode())
+
+    def test_room_list_privacy_guarantee(self):
+        """Visitors and requesters must never see anyone's name or reservation purpose on room list."""
+        date_str = self.tomorrow.isoformat()
+        response = self.client.get(
+            f'/?date={date_str}&start_time=10:00&end_time=12:00'
+        )
+        content = response.content.decode()
+        self.assertNotIn('secret_requester_john', content)
+        self.assertNotIn(self.secret_purpose, content)
+
+    def test_room_list_board_view_toggle_notice(self):
+        """Switching to ?view=board displays the Phase 3C timetable coming next notice."""
+        response = self.client.get('/?view=board')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn('Phase 3C', content)
+        self.assertIn('Availability Board', content)
