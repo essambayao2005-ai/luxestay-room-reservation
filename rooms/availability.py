@@ -228,10 +228,11 @@ def get_board_data(date, building=None, user=None):
             # Privacy enforcement: never expose unauthorized names/purposes
             is_owner = bool(user_id and res.requester_id == user_id)
             if is_staff:
-                req_name = res.requester.get_full_name() or res.requester.username
+                full_name = res.requester.get_full_name()
+                req_display = f"{full_name} ({res.requester.username})" if full_name else res.requester.username
                 display_text = res.purpose
-                sub_text = f"{req_name} ({time_str})"
-                tooltip = f"{res.purpose} • {req_name} • {time_str}"
+                sub_text = f"{req_display} • {time_str}"
+                tooltip = f"{res.purpose} • {req_display} • {time_str}"
             elif is_owner:
                 display_text = res.purpose
                 sub_text = f"My Reservation ({time_str})"
