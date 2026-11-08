@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Design System Preview | MSU-SND{% endblock %}
+{% block page_title %}Design System & Component Showcase{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-5">
+
+  <!-- Overview Section -->
+  <div class="glass-card p-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div>
+        <h2 class="h2 mb-1">Campus Scheduler Design System</h2>
+        <p class="text-small mb-0">
+          Clean, trustworthy, accessible UI for MSU-SND Room Checker and Reservation System.
+          Testing Frosted Glass surfaces, Inter typography, tokens, and components.
+        </p>
+      </div>
+      <div class="d-flex gap-2">
+        <span class="status-pill status-available">System Online</span>
+        <span class="status-pill status-pending">Design Audit Active</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. Stat Cards with Vanilla JS Count-Up -->
+  <section>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h3 class="h3 mb-0">1. Administrative Statistics (Count-Up Animation)</h3>
+      <small class="text-small">650ms ease-out animation</small>
+    </div>
+    <div class="row g-3">
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="glass-card stat-card">
+          <div class="stat-icon-chip">
+            <i class="bi bi-clock-history"></i>
+          </div>
+          <div>
+            <div class="stat-number" data-countup="4">0</div>
+            <div class="stat-label">Pending Requests</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="glass-card stat-card">
+          <div class="stat-icon-chip">
+            <i class="bi bi-calendar-check"></i>
+          </div>
+          <div>
+            <div class="stat-number" data-countup="12">0</div>
+            <div class="stat-label">Approved Today</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="glass-card stat-card">
+          <div class="stat-icon-chip">
+            <i class="bi bi-buildings"></i>
+          </div>
+          <div>
+            <div class="stat-number" data-countup="8">0</div>
+            <div class="stat-label">Active Campus Rooms</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="glass-card stat-card">
+          <div class="stat-icon-chip">
+            <i class="bi bi-people"></i>
+          </div>
+          <div>
+            <div class="stat-number" data-countup="148">0</div>
+            <div class="stat-label">Registered Users</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Buttons & Actions -->
+  <section>
+    <h3 class="h3 mb-3">2. Action Buttons & Feedback</h3>
+    <div class="glass-card p-4">
+      <div class="d-flex flex-wrap gap-3 align-items-center">
+        <button type="button" class="btn btn-maroon">
+          <i class="bi bi-calendar-plus"></i> Reserve Room
+        </button>
+        <button type="button" class="btn btn-secondary">
+          <i class="bi bi-filter"></i> Filter Schedule
+        </button>
+        <button type="button" class="btn btn-outline-maroon">
+          <i class="bi bi-arrow-repeat"></i> Reset Availability
+        </button>
+        <button type="button" class="btn btn-maroon" disabled>
+          <i class="bi bi-slash-circle"></i> Disabled State
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Status Pills -->
+  <section>
+    <h3 class="h3 mb-3">3. Status Pills (Standardized Soft Palette)</h3>
+    <div class="glass-card p-4">
+      <div class="d-flex flex-wrap gap-3 align-items-center">
+        <span class="status-pill status-available">Available / Approved</span>
+        <span class="status-pill status-occupied">Occupied / Declined</span>
+        <span class="status-pill status-pending">Pending Review</span>
+        <span class="status-pill status-cancelled">Cancelled</span>
+        <span class="status-pill status-conflict">Date Conflict Alert</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Form Controls & Search Inputs -->
+  <section>
+    <h3 class="h3 mb-3">4. Form Controls on High-Readability Canvas</h3>
+    <div class="glass-card p-4">
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label" for="previewDate">Reservation Date</label>
+          <input type="date" class="form-control" id="previewDate" value="2026-11-08">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label" for="previewBuilding">Campus Building</label>
+          <select class="form-select" id="previewBuilding">
+            <option selected>All Campus Buildings</option>
+            <option value="IT Building">IT Building</option>
+            <option value="CS Building">CS Building</option>
+            <option value="Engineering Building">Engineering Building</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label" for="previewAttendees">Min. Capacity</label>
+          <input type="number" class="form-control" id="previewAttendees" placeholder="e.g. 35" min="1">
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="previewPurpose">Event Purpose</label>
+          <textarea class="form-control" id="previewPurpose" rows="2" placeholder="Describe the academic meeting or student activity..."></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Data Table Presentation -->
+  <section>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h3 class="h3 mb-0">5. Data Table (Warm-Gray Header, Row Hover Tint)</h3>
+      <span class="text-small">Displaying 4 sample records</span>
+    </div>
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Building</th>
+            <th>Type</th>
+            <th>Capacity</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>CCS Lab 1</strong></td>
+            <td>IT Building</td>
+            <td>Laboratory</td>
+            <td>40 students</td>
+            <td><span class="status-pill status-available">Available</span></td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-maroon py-1 px-3">Reserve</button>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Room 201</strong></td>
+            <td>CS Building</td>
+            <td>Lecture Hall</td>
+            <td>50 students</td>
+            <td><span class="status-pill status-occupied">In use until 2:00 PM</span></td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-secondary py-1 px-3" disabled>Booked</button>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Conference Room</strong></td>
+            <td>CCS Office</td>
+            <td>Conference</td>
+            <td>20 persons</td>
+            <td><span class="status-pill status-pending">Pending Approval</span></td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-maroon py-1 px-3">Details</button>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Engineering Lab</strong></td>
+            <td>Engineering Building</td>
+            <td>Laboratory</td>
+            <td>35 students</td>
+            <td><span class="status-pill status-conflict">Conflict Detected</span></td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-maroon py-1 px-3">Review</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6. Notifications & Feedback Toasts -->
+  <section>
+    <h3 class="h3 mb-3">6. Notification Banners & Messages</h3>
+    <div class="row g-3">
+      <div class="col-12 col-md-6">
+        <div class="custom-alert custom-alert-success">
+          <i class="bi bi-check-circle-fill"></i>
+          <div>Reservation request #14 for CCS Lab 1 was approved successfully.</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="custom-alert custom-alert-error">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <div>This room is already reserved (approved) during the requested time slot.</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="custom-alert custom-alert-warning">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <div>Warning: Room capacity is 30, but 35 attendees were requested.</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="custom-alert custom-alert-info">
+          <i class="bi bi-info-circle-fill"></i>
+          <div>Availability Board synchronized with the latest campus reservations.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Empty State Component -->
+  <section>
+    <h3 class="h3 mb-3">7. Standard Empty State Component</h3>
+    <div class="glass-card empty-state-panel">
+      <div class="empty-state-icon">
+        <i class="bi bi-search"></i>
+      </div>
+      <h4 class="empty-state-title">No Rooms Found Matching Your Criteria</h4>
+      <p class="empty-state-desc">
+        Try adjusting your filter options, choosing a different building, or broadening the requested time range.
+      </p>
+      <button type="button" class="btn btn-outline-maroon">
+        <i class="bi bi-arrow-counterclockwise"></i> Clear Filters
+      </button>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
+
