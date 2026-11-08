@@ -383,23 +383,22 @@ class RoomBackendFoundationTests(TestCase):
 
     def test_current_status(self):
         """current_status() correctly returns 'Free now' or 'In use until H:MM AM/PM'."""
-        now = timezone.localtime()
-        current_time = now.time()
+        today = timezone.localdate()
+        mock_now = timezone.make_aware(datetime.datetime.combine(today, datetime.time(14, 0)))
 
         # Initial status: Free now
-        self.assertEqual(current_status(self.lab_room, now=now), "Free now")
+        self.assertEqual(current_status(self.lab_room, now=mock_now), "Free now")
 
-        # Create active approved reservation spanning current time
-        # E.g. start at now - 10 min, end at now + 50 min
-        start = (now - datetime.timedelta(minutes=10)).time()
-        end = (now + datetime.timedelta(minutes=50)).time()
+        # Create active approved reservation spanning mock_now (13:00 to 15:00)
+        start = datetime.time(13, 0)
+        end = datetime.time(15, 0)
 
         # Use objects.create to bypass clean() date/time restrictions for exact mock
         Reservation.objects.create(
             room=self.lab_room,
             requester=self.student_user,
             processed_by=self.staff_user,
-            reservation_date=now.date(),
+            reservation_date=today,
             start_time=start,
             end_time=end,
             purpose='Current In Use Event',
@@ -407,23 +406,25 @@ class RoomBackendFoundationTests(TestCase):
             status='approved',
         )
 
-        status_str = current_status(self.lab_room, now=now)
+        status_str = current_status(self.lab_room, now=mock_now)
         self.assertTrue(status_str.startswith("In use until"))
 
     def test_current_status_map_uses_one_query(self):
         """current_status_map() resolves statuses for multiple rooms in a single query."""
-        now = timezone.localtime()
+        today = timezone.localdate()
+        mock_now = timezone.make_aware(datetime.datetime.combine(today, datetime.time(14, 0)))
+
         # Initial: empty rooms list
         self.assertEqual(current_status_map([]), {})
 
-        # Create active approved reservation on lab_room
-        start = (now - datetime.timedelta(minutes=15)).time()
-        end = (now + datetime.timedelta(minutes=45)).time()
+        # Create active approved reservation on lab_room spanning mock_now
+        start = datetime.time(13, 0)
+        end = datetime.time(15, 0)
         Reservation.objects.create(
             room=self.lab_room,
             requester=self.student_user,
             processed_by=self.staff_user,
-            reservation_date=now.date(),
+            reservation_date=today,
             start_time=start,
             end_time=end,
             purpose='Batch Status Event',
@@ -435,7 +436,7 @@ class RoomBackendFoundationTests(TestCase):
 
         # Must execute exactly ONE query for reservations
         with self.assertNumQueries(1):
-            status_map = current_status_map(rooms, now=now)
+            status_map = current_status_map(rooms, now=mock_now)
 
         self.assertIn(self.lab_room.pk, status_map)
         self.assertIn(self.lecture_room.pk, status_map)
@@ -763,10 +764,169 @@ class RoomListViewTests(TestCase):
         self.assertNotIn('secret_requester_john', content)
         self.assertNotIn(self.secret_purpose, content)
 
-    def test_room_list_board_view_toggle_notice(self):
-        """Switching to ?view=board displays the Phase 3C timetable coming next notice."""
+    def test_room_list_board_view_toggle(self):
+        """Switching to ?view=board displays the Availability Board timetable."""
         response = self.client.get('/?view=board')
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
-        self.assertIn('Phase 3C', content)
+        self.assertIn('timetable-wrapper', content)
         self.assertIn('Availability Board', content)
+
+
+# ---------------------------------------------------------------------------
+# Availability Board Timetable Tests (Phase 3C)
+# ---------------------------------------------------------------------------
+
+class AvailabilityBoardViewTests(TestCase):
+    """
+    Integration tests for the Availability Board timetable view (/board/),
+    testing HTTP 200 response, day navigation, building filtering,
+    the 'now' line today marker, and strict multi-role privacy enforcement:
+      - Visitors see only 'Reserved' and the time.
+      - Logged-in owners see their own reservation purpose.
+      - Non-owner requesters do not see other people's purposes.
+      - Staff users see all purposes and requester names.
+    """
+
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username='board_admin_user', password='pass', is_staff=True
+        )
+        self.owner_student = User.objects.create_user(
+            username='secret_student_sam',
+            first_name='Sam',
+            last_name='Student',
+            password='pass',
+        )
+        self.other_student = User.objects.create_user(
+            username='other_student_jane',
+            password='pass',
+        )
+
+        self.it_room = Room.objects.create(
+            name='CCS Board Lab 1',
+            building='IT Building',
+            room_type='laboratory',
+            capacity=40,
+            is_active=True,
+        )
+        self.cs_room = Room.objects.create(
+            name='CS Board Room 201',
+            building='CS Building',
+            room_type='lecture',
+            capacity=50,
+            is_active=True,
+        )
+
+        self.today = timezone.localdate()
+        self.tomorrow = self.today + datetime.timedelta(days=1)
+        self.yesterday = self.today - datetime.timedelta(days=1)
+
+        self.secret_purpose = "Confidential Executive Planning Session [DEMO]"
+
+        # Approved reservation for today 10:00 - 12:00
+        Reservation.objects.create(
+            room=self.it_room,
+            requester=self.owner_student,
+            processed_by=self.staff_user,
+            reservation_date=self.today,
+            start_time=datetime.time(10, 0),
+            end_time=datetime.time(12, 0),
+            purpose=self.secret_purpose,
+            num_attendees=20,
+            status='approved',
+        )
+
+    def test_board_page_returns_200_and_renders_timetable(self):
+        """The /board/ route and root ?view=board both return 200 and render timetable."""
+        res_board = self.client.get('/board/')
+        self.assertEqual(res_board.status_code, 200)
+        self.assertTemplateUsed(res_board, 'rooms/_board.html')
+        self.assertIn('timetable-wrapper', res_board.content.decode())
+
+        res_root = self.client.get('/?view=board')
+        self.assertEqual(res_root.status_code, 200)
+        self.assertTemplateUsed(res_root, 'rooms/_board.html')
+        self.assertIn('timetable-wrapper', res_root.content.decode())
+
+    def test_board_visitor_privacy_no_username_or_purpose(self):
+        """Visitors see only 'Reserved' and the time. Never see usernames or purpose text."""
+        response = self.client.get('/board/')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        # Must show anonymous 'Reserved' block
+        self.assertIn('Reserved', content)
+        self.assertIn('10:00 AM – 12:00 PM', content)
+
+        # Must NEVER leak username, full name, or purpose in HTML
+        self.assertNotIn('secret_student_sam', content)
+        self.assertNotIn('[DEMO]', content)
+        self.assertNotIn('Confidential Executive Planning Session', content)
+
+    def test_board_staff_sees_requester_and_purpose(self):
+        """Staff members see reservation purpose and requester's name."""
+        self.client.force_login(self.staff_user)
+        response = self.client.get('/board/')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        self.assertIn(self.secret_purpose, content)
+        self.assertIn('secret_student_sam', content)
+
+    def test_board_owner_sees_own_purpose_non_owner_does_not(self):
+        """A logged-in requester sees their own reservation purpose, but other students do not."""
+        # 1. Reservation owner
+        self.client.force_login(self.owner_student)
+        res_owner = self.client.get('/board/')
+        content_owner = res_owner.content.decode()
+        self.assertIn(self.secret_purpose, content_owner)
+
+        # 2. Other logged-in student (non-owner)
+        self.client.force_login(self.other_student)
+        res_other = self.client.get('/board/')
+        content_other = res_other.content.decode()
+        self.assertNotIn(self.secret_purpose, content_other)
+        self.assertNotIn('secret_student_sam', content_other)
+        self.assertIn('Reserved', content_other)
+
+    def test_board_now_line_only_appears_for_today(self):
+        """The 'now' line marker appears only on today's timetable, never on tomorrow or yesterday."""
+        # Today: has now line
+        res_today = self.client.get('/board/')
+        self.assertIn('timetable-now-line', res_today.content.decode())
+
+        # Tomorrow: no now line
+        tom_str = self.tomorrow.isoformat()
+        res_tom = self.client.get(f'/board/?date={tom_str}')
+        self.assertNotIn('timetable-now-line', res_tom.content.decode())
+
+        # Yesterday: no now line
+        yest_str = self.yesterday.isoformat()
+        res_yest = self.client.get(f'/board/?date={yest_str}')
+        self.assertNotIn('timetable-now-line', res_yest.content.decode())
+
+    def test_board_building_filter(self):
+        """Filtering by campus building scopes the displayed rooms and reservations."""
+        # IT Building
+        res_it = self.client.get('/board/?building=IT+Building')
+        self.assertEqual(res_it.status_code, 200)
+        content_it = res_it.content.decode()
+        self.assertIn('CCS Board Lab 1', content_it)
+        self.assertNotIn('CS Board Room 201', content_it)
+
+        # CS Building
+        res_cs = self.client.get('/board/?building=CS+Building')
+        self.assertEqual(res_cs.status_code, 200)
+        content_cs = res_cs.content.decode()
+        self.assertIn('CS Board Room 201', content_cs)
+        self.assertNotIn('CCS Board Lab 1', content_cs)
+
+    def test_board_empty_state_on_unmatched_building(self):
+        """Non-matching building selection renders empty state gracefully."""
+        response = self.client.get('/board/?building=NonExistentBuilding')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn('No Rooms Found for this Selection', content)
+        self.assertNotIn('timetable-row', content)
+
