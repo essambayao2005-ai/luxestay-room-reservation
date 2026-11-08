@@ -140,3 +140,8 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+# Availability Board display settings (7:00 AM to 9:00 PM) - display only, not a booking rule
+BOARD_START_HOUR = 7
+BOARD_END_HOUR = 21
+
