@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from accounts.models import Profile
 from accounts.permissions import staff_required, get_user_reservation_or_404, get_profile
-from rooms.availability import get_buildings, rooms_with_status, day_schedule, current_status
+from rooms.availability import get_buildings, rooms_with_status, day_schedule, current_status, current_status_map
 from rooms.models import Room, Reservation
 from rooms.services import (
     create_reservation,
@@ -409,6 +409,39 @@ class RoomBackendFoundationTests(TestCase):
 
         status_str = current_status(self.lab_room, now=now)
         self.assertTrue(status_str.startswith("In use until"))
+
+    def test_current_status_map_uses_one_query(self):
+        """current_status_map() resolves statuses for multiple rooms in a single query."""
+        now = timezone.localtime()
+        # Initial: empty rooms list
+        self.assertEqual(current_status_map([]), {})
+
+        # Create active approved reservation on lab_room
+        start = (now - datetime.timedelta(minutes=15)).time()
+        end = (now + datetime.timedelta(minutes=45)).time()
+        Reservation.objects.create(
+            room=self.lab_room,
+            requester=self.student_user,
+            processed_by=self.staff_user,
+            reservation_date=now.date(),
+            start_time=start,
+            end_time=end,
+            purpose='Batch Status Event',
+            num_attendees=10,
+            status='approved',
+        )
+
+        rooms = [self.lab_room, self.lecture_room]
+
+        # Must execute exactly ONE query for reservations
+        with self.assertNumQueries(1):
+            status_map = current_status_map(rooms, now=now)
+
+        self.assertIn(self.lab_room.pk, status_map)
+        self.assertIn(self.lecture_room.pk, status_map)
+        self.assertTrue(status_map[self.lab_room.pk].startswith("In use until"))
+        self.assertEqual(status_map[self.lecture_room.pk], "Free now")
+
 
     def test_get_user_reservation_or_404(self):
         """get_user_reservation_or_404() returns reservation only to its owner and raises 404 otherwise."""

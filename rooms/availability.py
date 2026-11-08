@@ -105,3 +105,51 @@ def current_status(room, now=None):
 
     return "Free now"
 
+
+def current_status_map(rooms, now=None):
+    """Returns a dictionary mapping room_id (int) to a status string:
+    'Free now' or 'In use until H:MM AM/PM' for multiple rooms in a SINGLE database query.
+    Avoids N+1 query overhead when displaying room lists.
+    """
+    if now is None:
+        now = timezone.localtime()
+
+    current_date = now.date()
+    current_time = now.time()
+
+    room_list = list(rooms)
+    if not room_list:
+        return {}
+
+    room_ids = [r.pk if hasattr(r, 'pk') else r for r in room_list]
+
+    # ONE single query fetching all approved reservations covering current_time today
+    active_reservations = (
+        Reservation.objects.filter(
+            room_id__in=room_ids,
+            reservation_date=current_date,
+            status='approved',
+            start_time__lte=current_time,
+            end_time__gt=current_time,
+        )
+        .order_by('end_time')
+    )
+
+    # Map the earliest ending reservation to each room_id
+    status_by_id = {}
+    for res in active_reservations:
+        if res.room_id not in status_by_id:
+            formatted_time = res.end_time.strftime('%I:%M %p')
+            if formatted_time.startswith('0'):
+                formatted_time = formatted_time[1:]
+            status_by_id[res.room_id] = f"In use until {formatted_time}"
+
+    # Build result dict ensuring an entry for every room
+    result = {}
+    for r in room_list:
+        pk = r.pk if hasattr(r, 'pk') else r
+        result[pk] = status_by_id.get(pk, "Free now")
+
+    return result
+
+
