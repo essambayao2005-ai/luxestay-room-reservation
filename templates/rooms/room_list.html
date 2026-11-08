@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Campus Rooms & Availability | MSU-SND{% endblock %}
+{% block page_title %}Campus Rooms & Availability{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Header & View Mode Toggle Toolbar -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h2 class="h2 mb-1">Campus Rooms Directory</h2>
+      <p class="text-small mb-0">
+        Check real-time availability and explore lecture halls, laboratories, and conference rooms across MSU-SND.
+      </p>
+    </div>
+
+    <!-- Cards / Availability Board View Toggle -->
+    <div class="view-toggle-group" role="group" aria-label="Directory View Mode">
+      <a href="?" class="view-toggle-btn {% if view_mode != 'board' %}active{% endif %}" title="View rooms as cards">
+        <i class="bi bi-grid-fill"></i> Cards
+      </a>
+      <a href="?view=board{% if request.GET.building %}&building={{ request.GET.building }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}" class="view-toggle-btn {% if view_mode == 'board' %}active{% endif %}" title="View timetable availability board">
+        <i class="bi bi-calendar3-range"></i> Availability Board
+      </a>
+    </div>
+  </div>
+
+  <!-- Availability Board Phase 3C Preview Notice -->
+  {% if view_mode == 'board' %}
+  <div class="glass-card p-4" style="border-left: 4px solid var(--maroon);">
+    <div class="d-flex align-items-start gap-3">
+      <div class="stat-icon-chip" style="width: 44px; height: 44px; min-width: 44px; font-size: 20px;">
+        <i class="bi bi-calendar3-range"></i>
+      </div>
+      <div class="flex-grow-1">
+        <h4 class="h3 mb-1">Availability Board (Timetable View)</h4>
+        <p class="text-small mb-3">
+          The signature hour-by-hour campus timetable board is arriving next in <strong>Phase 3C</strong>.
+          You can check live room statuses and search specific time slots using the cards view below.
+        </p>
+        <a href="?" class="btn btn-sm btn-outline-maroon">
+          <i class="bi bi-grid-fill"></i> Switch to Cards View
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Glass Availability Search Panel -->
+  <div class="glass-card p-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h3 class="h3 mb-0">
+        <i class="bi bi-sliders2 text-maroon me-2"></i>Availability Search & Filters
+      </h3>
+      {% if is_slot_searched or request.GET.building or request.GET.min_capacity %}
+      <a href="/" class="btn btn-sm btn-secondary">
+        <i class="bi bi-arrow-counterclockwise"></i> Clear Filters
+      </a>
+      {% endif %}
+    </div>
+
+    <!-- Form Non-field / Field Validation Alerts -->
+    {% if form.non_field_errors %}
+    <div class="custom-alert custom-alert-error mb-3">
+      <i class="bi bi-exclamation-circle-fill"></i>
+      <div>
+        {% for error in form.non_field_errors %}
+        <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if form.errors and not form.non_field_errors %}
+    <div class="custom-alert custom-alert-warning mb-3">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <div>
+        {% for field in form %}
+          {% for error in field.errors %}
+          <div><strong>{{ field.label|default:field.name|capfirst }}:</strong> {{ error }}</div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <form method="get" action="." class="row g-3 align-items-end">
+      <!-- Hidden view mode preservation if active -->
+      {% if view_mode == 'board' %}
+      <input type="hidden" name="view" value="board">
+      {% endif %}
+
+      <!-- Date -->
+      <div class="col-12 col-sm-6 col-lg-3">
+        <label class="form-label" for="{{ form.date.id_for_label }}">Reservation Date</label>
+        {{ form.date }}
+      </div>
+
+      <!-- Start Time -->
+      <div class="col-6 col-sm-3 col-lg-2">
+        <label class="form-label" for="{{ form.start_time.id_for_label }}">Start Time</label>
+        {{ form.start_time }}
+      </div>
+
+      <!-- End Time -->
+      <div class="col-6 col-sm-3 col-lg-2">
+        <label class="form-label" for="{{ form.end_time.id_for_label }}">End Time</label>
+        {{ form.end_time }}
+      </div>
+
+      <!-- Campus Building -->
+      <div class="col-12 col-sm-6 col-lg-3">
+        <label class="form-label" for="{{ form.building.id_for_label }}">Building</label>
+        {{ form.building }}
+      </div>
+
+      <!-- Min Capacity -->
+      <div class="col-12 col-sm-6 col-lg-2">
+        <label class="form-label" for="{{ form.min_capacity.id_for_label }}">Min Capacity</label>
+        {{ form.min_capacity }}
+      </div>
+
+      <!-- Filter Controls & Actions Row -->
+      <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-3 pt-2">
+        <div class="form-check m-0">
+          {{ form.available_only }}
+          <label class="form-check-label text-small fw-semibold" for="{{ form.available_only.id_for_label }}">
+            Show available rooms only
+          </label>
+        </div>
+
+        <div class="d-flex gap-2">
+          <a href="/" class="btn btn-secondary">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+          </a>
+          <button type="submit" class="btn btn-maroon">
+            <i class="bi bi-search"></i> Check Availability
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Search Results Meta Strip -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-1">
+    <div>
+      {% if is_slot_searched %}
+      <span class="search-summary-chip">
+        <i class="bi bi-calendar-check text-maroon"></i>
+        <span>Slot: <strong>{{ searched_date|date:"F j, Y" }}</strong>, <strong>{{ searched_start|time:"g:i A" }} – {{ searched_end|time:"g:i A" }}</strong></span>
+      </span>
+      {% else %}
+      <span class="text-small fw-semibold text-secondary">
+        <i class="bi bi-info-circle me-1"></i>Showing all active campus rooms (unrestricted time slot)
+      </span>
+      {% endif %}
+    </div>
+    <div class="text-small text-secondary tabular-nums">
+      Found <strong>{{ rooms|length }}</strong> room{{ rooms|length|pluralize }}
+    </div>
+  </div>
+
+  <!-- Room Cards Responsive Grid (1, 2, or 3 columns) -->
+  {% if rooms %}
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    {% for room in rooms %}
+    <div class="col">
+      <div class="glass-card room-card" style="animation-delay: calc({{ forloop.counter0 }} * 45ms);">
+
+        <!-- Room Header: Thumbnail / Initials + Name + Building -->
+        <div class="room-header">
+          {% if room.image %}
+            <img src="{{ room.image.url }}" alt="{{ room.name }}" class="room-thumbnail">
+          {% else %}
+            <div class="room-initials-chip" title="{{ room.name }}">
+              {{ room.initials }}
+            </div>
+          {% endif %}
+
+          <div class="room-title-area">
+            <h3 class="room-card-name">{{ room.name }}</h3>
+            <span class="building-chip">
+              <i class="bi bi-geo-alt"></i> {{ room.building }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Room Metadata: Type & Capacity -->
+        <div class="room-meta-row">
+          <span class="room-type-badge">{{ room.get_room_type_display }}</span>
+          <span class="room-capacity-chip">
+            <i class="bi bi-people"></i> {{ room.capacity }} seats
+          </span>
+        </div>
+
+        <!-- Short Description -->
+        <p class="room-card-desc">
+          {{ room.description|default:"Standard academic campus facility with standard instructional equipment." }}
+        </p>
+
+        <!-- Time Slot Availability Pill (if slot searched) -->
+        {% if is_slot_searched %}
+        <div class="mb-2">
+          {% if room.is_occupied %}
+          <span class="status-pill status-occupied" title="This room is occupied during {{ searched_start|time:'g:i A' }} – {{ searched_end|time:'g:i A' }}">
+            Occupied for slot
+          </span>
+          {% else %}
+          <span class="status-pill status-available" title="This room is free during {{ searched_start|time:'g:i A' }} – {{ searched_end|time:'g:i A' }}">
+            Available for slot
+          </span>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Live Current Status Today (Free now / In use until...) -->
+        <div class="room-live-status">
+          <span class="status-dot {% if room.current_status_text == 'Free now' %}status-dot-free{% else %}status-dot-busy{% endif %}" aria-hidden="true"></span>
+          <span class="text-small fw-semibold">{{ room.current_status_text }}</span>
+        </div>
+
+        <!-- Action Button: Reserve (or Disabled if Occupied) -->
+        <div class="mt-auto pt-2">
+          {# TODO: switch to {% url 'rooms:reservation_create' room.id %} in Phase 4 #}
+          {% if is_slot_searched and room.is_occupied %}
+            <button type="button" class="btn btn-secondary w-100" disabled title="This room is occupied during the requested time slot.">
+              <i class="bi bi-slash-circle"></i> Occupied
+            </button>
+          {% else %}
+            {% if request.user.is_authenticated %}
+              <a href="/reserve/{{ room.id }}/" class="btn btn-maroon w-100">
+                <i class="bi bi-calendar-plus"></i> Reserve
+              </a>
+            {% else %}
+              <a href="/accounts/login/?next=/reserve/{{ room.id }}/" class="btn btn-maroon w-100" title="Sign in to reserve this room">
+                <i class="bi bi-calendar-plus"></i> Reserve
+              </a>
+            {% endif %}
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Empty State Panel -->
+  <div class="glass-card empty-state-panel">
+    <div class="empty-state-icon">
+      <i class="bi bi-search"></i>
+    </div>
+    <h4 class="empty-state-title">No Rooms Found Matching Your Criteria</h4>
+    <p class="empty-state-desc">
+      Try adjusting your search criteria, selecting a different campus building, reducing the required capacity, or clearing the availability filters.
+    </p>
+    <a href="/" class="btn btn-outline-maroon">
+      <i class="bi bi-arrow-counterclockwise"></i> Clear Filters
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
