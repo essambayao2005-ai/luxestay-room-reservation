@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Availability Board | MSU-SND{% endblock %}
+{% block page_title %}Campus Availability Board{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Header & View Mode Toggle Toolbar -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h2 class="h2 mb-1">Campus Timetable & Availability Board</h2>
+      <p class="text-small mb-0">
+        Hour-by-hour view of all campus rooms from 7:00 AM to 9:00 PM. Hover free cells to reserve, or inspect approved bookings.
+      </p>
+    </div>
+
+    <!-- Cards / Availability Board View Toggle -->
+    <div class="view-toggle-group" role="group" aria-label="Directory View Mode">
+      <a href="/" class="view-toggle-btn" title="Switch to Cards Directory">
+        <i class="bi bi-grid-fill"></i> Cards
+      </a>
+      <a href="/board/" class="view-toggle-btn active" title="Current View: Availability Board">
+        <i class="bi bi-calendar3-range"></i> Availability Board
+      </a>
+    </div>
+  </div>
+
+  <!-- Reusable Board Timetable Partial -->
+  {% include 'rooms/_board.html' %}
+
+</div>
+{% endblock %}

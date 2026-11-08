@@ -1,0 +1,223 @@
+{% load static %}
+<div class="d-flex flex-column gap-3">
+
+  <!-- Board Toolbar: Day Navigation, Date Picker & Building Filter -->
+  <div class="glass-card p-3">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+
+      <!-- Day Navigation Controls -->
+      <div class="d-flex align-items-center gap-2">
+        <a href="?date={{ prev_date_str }}{% if selected_building %}&building={{ selected_building }}{% endif %}{% if view_mode == 'board' and request.path == '/' %}&view=board{% endif %}"
+           class="btn btn-sm btn-secondary"
+           title="Previous Day ({{ prev_date_str }})"
+           aria-label="Previous Day">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+
+        <a href="?date={{ today_str }}{% if selected_building %}&building={{ selected_building }}{% endif %}{% if view_mode == 'board' and request.path == '/' %}&view=board{% endif %}"
+           class="btn btn-sm {% if board.is_today %}btn-maroon{% else %}btn-secondary{% endif %}"
+           title="Jump to Today's Schedule">
+          <i class="bi bi-calendar-event"></i> Today
+        </a>
+
+        <a href="?date={{ next_date_str }}{% if selected_building %}&building={{ selected_building }}{% endif %}{% if view_mode == 'board' and request.path == '/' %}&view=board{% endif %}"
+           class="btn btn-sm btn-secondary"
+           title="Next Day ({{ next_date_str }})"
+           aria-label="Next Day">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+
+        <!-- Date Display Chip -->
+        <span class="badge" style="background-color: var(--champagne); color: var(--maroon-dark); font-size: 13px; padding: 7px 12px; border-radius: var(--radius-pill);">
+          <i class="bi bi-calendar3 me-1"></i> {{ selected_date|date:"l, F j, Y" }}
+        </span>
+      </div>
+
+      <!-- Date Picker & Building Filter Form -->
+      <form method="get" action="" class="d-flex align-items-center gap-2 flex-wrap m-0">
+        {% if view_mode == 'board' and request.path == '/' %}
+        <input type="hidden" name="view" value="board">
+        {% endif %}
+
+        <div class="d-flex align-items-center gap-2">
+          <label for="boardDatePicker" class="visually-hidden">Choose Date</label>
+          <input type="date"
+                 id="boardDatePicker"
+                 name="date"
+                 class="form-control form-control-sm"
+                 style="min-height: 36px; min-width: 150px;"
+                 value="{{ selected_date_str }}"
+                 aria-label="Select Date">
+
+          <label for="boardBuildingSelect" class="visually-hidden">Building</label>
+          <select id="boardBuildingSelect"
+                  name="building"
+                  class="form-select form-select-sm"
+                  style="min-height: 36px; min-width: 160px;"
+                  aria-label="Filter by Building">
+            <option value="" {% if not selected_building %}selected{% endif %}>All Campus Buildings</option>
+            {% for bldg in buildings %}
+            <option value="{{ bldg }}" {% if selected_building == bldg %}selected{% endif %}>{{ bldg }}</option>
+            {% endfor %}
+          </select>
+
+          <button type="submit" class="btn btn-sm btn-maroon" style="min-height: 36px;">
+            <i class="bi bi-filter"></i> Go
+          </button>
+
+          {% if selected_building or not board.is_today %}
+          <a href="{% if request.path == '/' %}?view=board{% else %}/board/{% endif %}"
+             class="btn btn-sm btn-secondary"
+             style="min-height: 36px;"
+             title="Reset timetable to today and all buildings">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </a>
+          {% endif %}
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Legend Strip -->
+  <div class="timetable-legend">
+    <div class="legend-item">
+      <span class="legend-swatch legend-swatch-free"></span>
+      <span>Free Slot (hover <strong>+</strong> to reserve)</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-swatch legend-swatch-reserved"></span>
+      <span>Reserved (approved booking)</span>
+    </div>
+    {% if board.is_today %}
+    <div class="legend-item">
+      <span class="legend-swatch legend-swatch-now"></span>
+      <span>Current Time Marker</span>
+    </div>
+    {% endif %}
+    <div class="ms-auto text-small text-secondary tabular-nums">
+      Display hours: <strong>7:00 AM – 9:00 PM</strong>
+    </div>
+  </div>
+
+  <!-- Timetable Grid Canvas -->
+  {% if board.has_rooms %}
+  <div class="timetable-wrapper">
+    <div class="timetable-container">
+
+      <!-- Header: Corner sticky cell + 14 Hour Columns -->
+      <div class="timetable-header-row">
+        <div class="timetable-corner-header">
+          <i class="bi bi-door-open me-2"></i> Room / Facility
+        </div>
+        {% for h in board.hours %}
+        <div class="timetable-hour-header" title="{{ h.time_range_label }}">
+          {{ h.label }}
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Building Group Rows -->
+      {% for building_name, room_items in board.building_groups.items %}
+      <div class="timetable-building-section">
+        <i class="bi bi-buildings-fill"></i>
+        <span>{{ building_name }}</span>
+        <span class="badge bg-white text-dark ms-2 fw-semibold" style="font-size: 11px;">
+          {{ room_items|length }} room{{ room_items|length|pluralize }}
+        </span>
+      </div>
+
+      <!-- Room Rows in Building -->
+      {% for item in room_items %}
+      <div class="timetable-row">
+
+        <!-- Sticky Room Info Column -->
+        <div class="timetable-room-cell">
+          <div class="timetable-room-name" title="{{ item.room.name }}">
+            {{ item.room.name }}
+          </div>
+          <div class="timetable-room-meta">
+            <span><i class="bi bi-people"></i> {{ item.room.capacity }}</span>
+            <span>•</span>
+            <span class="text-capitalize">{{ item.room.get_room_type_display }}</span>
+          </div>
+        </div>
+
+        <!-- Timetable Hour Track (14 columns) -->
+        <div class="timetable-track">
+
+          <!-- Today "Now" Line (drawn over tracks) -->
+          {% if board.is_today and board.now_line %}
+          <div class="timetable-now-line"
+               style="left: {{ board.now_line.percent|floatformat:2 }}%;"
+               aria-label="Current time: {{ board.now_line.time_label }}">
+            {% if forloop.parentloop.first and forloop.first %}
+            <div class="now-line-label">
+              <i class="bi bi-clock-fill"></i> Now {{ board.now_line.time_label }}
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <!-- 14 Free Hour Cells (clickable to reserve) -->
+          {% for h in board.hours %}
+          {# TODO: switch to {% url 'rooms:reservation_create' item.room.id %} in Phase 4 #}
+          {% if request.user.is_authenticated %}
+          <a href="/reserve/{{ item.room.id }}/?date={{ selected_date_str }}&start={{ h.time_24 }}"
+             class="timetable-cell"
+             aria-label="Reserve {{ item.room.name }} on {{ selected_date_str }} starting at {{ h.label }}"
+             title="Reserve {{ item.room.name }} at {{ h.label }}">
+            <span class="cell-hover-plus" aria-hidden="true">+</span>
+          </a>
+          {% else %}
+          <a href="/accounts/login/?next=/reserve/{{ item.room.id }}/%3Fdate={{ selected_date_str }}%26start={{ h.time_24 }}"
+             class="timetable-cell"
+             aria-label="Sign in to reserve {{ item.room.name }} on {{ selected_date_str }} at {{ h.label }}"
+             title="Sign in to reserve at {{ h.label }}">
+            <span class="cell-hover-plus" aria-hidden="true">+</span>
+          </a>
+          {% endif %}
+          {% endfor %}
+
+          <!-- Approved Reservation Blocks -->
+          {% for block in item.blocks %}
+          <div class="timetable-block"
+               style="{{ block.css_style }}"
+               title="{{ block.tooltip }}"
+               aria-label="{{ block.tooltip }}"
+               data-bs-toggle="tooltip">
+            <div class="block-title">
+              <i class="bi bi-lock-fill me-1" style="font-size: 10px;"></i>{{ block.display_text }}
+            </div>
+            <div class="block-subtitle">
+              {{ block.sub_text }}
+            </div>
+          </div>
+          {% endfor %}
+
+        </div>
+
+      </div>
+      {% endfor %}
+      {% endfor %}
+
+    </div>
+  </div>
+
+  {% else %}
+  <!-- Empty State when no rooms match the building filter -->
+  <div class="glass-card empty-state-panel p-5">
+    <div class="empty-state-icon">
+      <i class="bi bi-buildings"></i>
+    </div>
+    <h4 class="empty-state-title">No Rooms Found for this Selection</h4>
+    <p class="empty-state-desc">
+      There are no active campus rooms in "{{ selected_building }}". Try selecting "All Campus Buildings" to see the full timetable.
+    </p>
+    <a href="{% if request.path == '/' %}?view=board{% else %}/board/{% endif %}" class="btn btn-outline-maroon">
+      <i class="bi bi-arrow-counterclockwise"></i> Show All Buildings
+    </a>
+  </div>
+  {% endif %}
+
+</div>

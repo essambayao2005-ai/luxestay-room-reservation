@@ -267,19 +267,19 @@ def get_board_data(date, building=None, user=None):
         b_name = item['room'].building or 'Other Buildings'
         building_groups.setdefault(b_name, []).append(item)
 
-    # 6. 'Now' line calculation
+    # 6. 'Now' line calculation (present whenever viewing today's timetable)
     now = timezone.localtime()
     is_today = (date == now.date())
     now_line = None
     if is_today:
         now_hour_float = now.hour + now.minute / 60.0
-        if start_hour <= now_hour_float <= end_hour:
-            now_offset = now_hour_float - start_hour
-            now_percent = (now_offset / total_hours) * 100.0
-            now_line = {
-                'percent': now_percent,
-                'time_label': now.strftime('%I:%M %p').lstrip('0'),
-            }
+        clamped_now = max(start_hour, min(end_hour, now_hour_float))
+        now_offset = clamped_now - start_hour
+        now_percent = (now_offset / total_hours) * 100.0
+        now_line = {
+            'percent': now_percent,
+            'time_label': now.strftime('%I:%M %p').lstrip('0'),
+        }
 
     return {
         'hours': hours,

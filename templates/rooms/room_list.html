@@ -27,26 +27,10 @@
     </div>
   </div>
 
-  <!-- Availability Board Phase 3C Preview Notice -->
   {% if view_mode == 'board' %}
-  <div class="glass-card p-4" style="border-left: 4px solid var(--maroon);">
-    <div class="d-flex align-items-start gap-3">
-      <div class="stat-icon-chip" style="width: 44px; height: 44px; min-width: 44px; font-size: 20px;">
-        <i class="bi bi-calendar3-range"></i>
-      </div>
-      <div class="flex-grow-1">
-        <h4 class="h3 mb-1">Availability Board (Timetable View)</h4>
-        <p class="text-small mb-3">
-          The signature hour-by-hour campus timetable board is arriving next in <strong>Phase 3C</strong>.
-          You can check live room statuses and search specific time slots using the cards view below.
-        </p>
-        <a href="?" class="btn btn-sm btn-outline-maroon">
-          <i class="bi bi-grid-fill"></i> Switch to Cards View
-        </a>
-      </div>
-    </div>
-  </div>
-  {% endif %}
+  <!-- Reusable Availability Board Timetable Partial -->
+  {% include 'rooms/_board.html' %}
+  {% else %}
 
   <!-- Glass Availability Search Panel -->
   <div class="glass-card p-4">
@@ -262,5 +246,8 @@
   </div>
   {% endif %}
 
+  {% endif %}
+
 </div>
 {% endblock %}
+

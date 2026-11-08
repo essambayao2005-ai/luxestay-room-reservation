@@ -121,3 +121,4 @@ class RoomSearchForm(forms.Form):
             )
 
         return cleaned_data
+

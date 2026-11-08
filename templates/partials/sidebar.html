@@ -51,7 +51,7 @@
         <span>Rooms</span>
       </a>
       {# TODO: switch to {% url 'rooms:room_list' %}?view=board in Phase 4 #}
-      <a href="/?view=board" class="sidebar-link {% if request.GET.view == 'board' %}active{% endif %}">
+      <a href="/board/" class="sidebar-link {% if request.path == '/board/' or request.GET.view == 'board' %}active{% endif %}">
         <i class="bi bi-calendar3-range"></i>
         <span>Availability Board</span>
       </a>
@@ -70,7 +70,7 @@
         <span>Rooms</span>
       </a>
       {# TODO: switch to {% url 'rooms:room_list' %}?view=board in Phase 4 #}
-      <a href="/?view=board" class="sidebar-link {% if request.GET.view == 'board' %}active{% endif %}">
+      <a href="/board/" class="sidebar-link {% if request.path == '/board/' or request.GET.view == 'board' %}active{% endif %}">
         <i class="bi bi-calendar3-range"></i>
         <span>Availability Board</span>
       </a>
