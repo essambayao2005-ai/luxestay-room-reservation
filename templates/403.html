@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}403 - Access Forbidden | MSU-SND Room Reservation{% endblock %}
+{% block page_title %}Access Restricted{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="glass-card empty-state-panel p-5">
+      <div class="empty-state-icon" style="background-color: var(--status-occupied-bg); color: var(--maroon);">
+        <i class="bi bi-shield-lock"></i>
+      </div>
+      <h1 class="empty-state-title">403 - Access Restricted</h1>
+      <p class="empty-state-desc">
+        You do not have administrative authorization or appropriate permissions to access this campus module.
+      </p>
+      <div class="d-flex gap-3 justify-content-center">
+        <!-- TODO: switch to {% url 'rooms:room_list' %} in Phase 4 -->
+        <a href="/" class="btn btn-maroon">
+          <i class="bi bi-arrow-left"></i> Return to Rooms
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
