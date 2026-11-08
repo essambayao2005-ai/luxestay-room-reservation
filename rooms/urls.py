@@ -10,4 +10,6 @@ app_name = 'rooms'
 
 urlpatterns = [
     path('', views.room_list, name='room_list'),
+    path('board/', views.availability_board, name='availability_board'),
 ]
+

@@ -1,12 +1,14 @@
 """
 Views for the rooms app.
-Provides the campus room directory and slot availability search.
+Provides the campus room directory, slot availability search,
+and the interactive Availability Board timetable.
 """
 
+import datetime
 from django.shortcuts import render
 from django.utils import timezone
 
-from .availability import current_status_map, rooms_with_status
+from .availability import current_status_map, get_board_data, get_buildings, rooms_with_status
 from .forms import RoomSearchForm
 
 
@@ -20,11 +22,22 @@ def _get_room_initials(name):
     return "RM"
 
 
+def _parse_date(date_str):
+    """Safely parses a YYYY-MM-DD date string, defaulting to local today on failure."""
+    if not date_str:
+        return timezone.localdate()
+    try:
+        return datetime.date.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        return timezone.localdate()
+
+
 def room_list(request):
     """Public campus rooms directory and availability search view.
     Accessible to visitors, requesters, and staff alike.
     Displays room cards with live status (Free now / In use until...)
     and time slot availability indicators when searched.
+    Also supports timetable board view via ?view=board.
     Never exposes requester names or private reservation purposes.
     """
     view_mode = request.GET.get('view', 'cards')
@@ -104,4 +117,57 @@ def room_list(request):
         'searched_start': searched_start,
         'searched_end': searched_end,
     }
+
+    # If board view requested on root URL, inject board timetable data
+    if view_mode == 'board':
+        date_param = request.GET.get('date')
+        selected_date = _parse_date(date_param)
+        building_param = request.GET.get('building') or None
+        board_data = get_board_data(date=selected_date, building=building_param, user=request.user)
+        today = timezone.localdate()
+        prev_date = selected_date - datetime.timedelta(days=1)
+        next_date = selected_date + datetime.timedelta(days=1)
+
+        context.update({
+            'selected_date': selected_date,
+            'selected_date_str': selected_date.isoformat(),
+            'prev_date_str': prev_date.isoformat(),
+            'next_date_str': next_date.isoformat(),
+            'today_str': today.isoformat(),
+            'selected_building': building_param or '',
+            'buildings': get_buildings(),
+            'board': board_data,
+        })
+
     return render(request, 'rooms/room_list.html', context)
+
+
+def availability_board(request):
+    """Public dedicated Availability Board timetable view (/board/).
+    Renders rooms grouped by building with reservation blocks laid out on an hour grid (7 AM - 9 PM).
+    Computes CSS variables in Python and enforces the privacy rule.
+    """
+    date_param = request.GET.get('date')
+    selected_date = _parse_date(date_param)
+    building_param = request.GET.get('building') or None
+
+    board_data = get_board_data(date=selected_date, building=building_param, user=request.user)
+    buildings = get_buildings()
+
+    today = timezone.localdate()
+    prev_date = selected_date - datetime.timedelta(days=1)
+    next_date = selected_date + datetime.timedelta(days=1)
+
+    context = {
+        'page_title': 'Campus Availability Board',
+        'selected_date': selected_date,
+        'selected_date_str': selected_date.isoformat(),
+        'prev_date_str': prev_date.isoformat(),
+        'next_date_str': next_date.isoformat(),
+        'today_str': today.isoformat(),
+        'selected_building': building_param or '',
+        'buildings': buildings,
+        'board': board_data,
+        'view_mode': 'board',
+    }
+    return render(request, 'rooms/availability_board.html', context)
