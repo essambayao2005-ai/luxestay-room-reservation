@@ -16,27 +16,27 @@
     {% if request.user.is_authenticated and request.user.is_staff %}
       <!-- ADMINISTRATOR MENU -->
       <span class="nav-section-label">Management</span>
-      <!-- TODO: switch to {% url 'dashboard:home' %} in Phase 4 -->
+      {# TODO: switch to {% url 'dashboard:home' %} in Phase 4 #}
       <a href="/manage/" class="sidebar-link {% if request.path == '/manage/' %}active{% endif %}">
         <i class="bi bi-grid-1x2"></i>
         <span>Dashboard</span>
       </a>
-      <!-- TODO: switch to {% url 'dashboard:reservation_list' %} in Phase 4 -->
+      {# TODO: switch to {% url 'dashboard:reservation_list' %} in Phase 4 #}
       <a href="/manage/reservations/" class="sidebar-link {% if '/manage/reservations' in request.path %}active{% endif %}">
         <i class="bi bi-calendar-check"></i>
         <span>Reservations</span>
       </a>
-      <!-- TODO: switch to {% url 'dashboard:room_list' %} in Phase 4 -->
+      {# TODO: switch to {% url 'dashboard:room_list' %} in Phase 4 #}
       <a href="/manage/rooms/" class="sidebar-link {% if '/manage/rooms' in request.path %}active{% endif %}">
         <i class="bi bi-door-open"></i>
         <span>Rooms</span>
       </a>
-      <!-- TODO: switch to {% url 'dashboard:user_list' %} in Phase 4 -->
+      {# TODO: switch to {% url 'dashboard:user_list' %} in Phase 4 #}
       <a href="/manage/users/" class="sidebar-link {% if '/manage/users' in request.path %}active{% endif %}">
         <i class="bi bi-people"></i>
         <span>Users</span>
       </a>
-      <!-- TODO: switch to {% url 'dashboard:reports' %} in Phase 4 -->
+      {# TODO: switch to {% url 'dashboard:reports' %} in Phase 4 #}
       <a href="/manage/reports/" class="sidebar-link {% if '/manage/reports' in request.path %}active{% endif %}">
         <i class="bi bi-file-earmark-bar-graph"></i>
         <span>Reports</span>
@@ -45,17 +45,17 @@
     {% elif request.user.is_authenticated %}
       <!-- REQUESTER MENU (Student / Faculty) -->
       <span class="nav-section-label">Campus Services</span>
-      <!-- TODO: switch to {% url 'rooms:room_list' %} in Phase 4 -->
+      {# TODO: switch to {% url 'rooms:room_list' %} in Phase 4 #}
       <a href="/" class="sidebar-link {% if request.path == '/' and not request.GET.view %}active{% endif %}">
         <i class="bi bi-buildings"></i>
         <span>Rooms</span>
       </a>
-      <!-- TODO: switch to {% url 'rooms:room_list' %}?view=board in Phase 4 -->
+      {# TODO: switch to {% url 'rooms:room_list' %}?view=board in Phase 4 #}
       <a href="/?view=board" class="sidebar-link {% if request.GET.view == 'board' %}active{% endif %}">
         <i class="bi bi-calendar3-range"></i>
         <span>Availability Board</span>
       </a>
-      <!-- TODO: switch to {% url 'rooms:my_reservations' %} in Phase 4 -->
+      {# TODO: switch to {% url 'rooms:my_reservations' %} in Phase 4 #}
       <a href="/my-reservations/" class="sidebar-link {% if '/my-reservations' in request.path %}active{% endif %}">
         <i class="bi bi-bookmark-check"></i>
         <span>My Reservations</span>
@@ -64,24 +64,24 @@
     {% else %}
       <!-- VISITOR MENU -->
       <span class="nav-section-label">Explore</span>
-      <!-- TODO: switch to {% url 'rooms:room_list' %} in Phase 4 -->
+      {# TODO: switch to {% url 'rooms:room_list' %} in Phase 4 #}
       <a href="/" class="sidebar-link {% if request.path == '/' and not request.GET.view %}active{% endif %}">
         <i class="bi bi-buildings"></i>
         <span>Rooms</span>
       </a>
-      <!-- TODO: switch to {% url 'rooms:room_list' %}?view=board in Phase 4 -->
+      {# TODO: switch to {% url 'rooms:room_list' %}?view=board in Phase 4 #}
       <a href="/?view=board" class="sidebar-link {% if request.GET.view == 'board' %}active{% endif %}">
         <i class="bi bi-calendar3-range"></i>
         <span>Availability Board</span>
       </a>
 
       <span class="nav-section-label mt-2">Account Access</span>
-      <!-- TODO: switch to {% url 'accounts:login' %} in Phase 4 -->
+      {# TODO: switch to {% url 'accounts:login' %} in Phase 4 #}
       <a href="/accounts/login/" class="sidebar-link {% if '/accounts/login' in request.path %}active{% endif %}">
         <i class="bi bi-box-arrow-in-right"></i>
         <span>Sign in</span>
       </a>
-      <!-- TODO: switch to {% url 'accounts:register' %} in Phase 4 -->
+      {# TODO: switch to {% url 'accounts:register' %} in Phase 4 #}
       <a href="/accounts/register/" class="sidebar-link {% if '/accounts/register' in request.path %}active{% endif %}">
         <i class="bi bi-person-plus"></i>
         <span>Register</span>
@@ -101,15 +101,20 @@
           <div class="user-chip-role">
             {% if request.user.is_staff %}
               Administrator
-            {% elif request.user.profile %}
-              {{ request.user.profile.get_user_type_display }}
             {% else %}
-              Requester
+              {# Safe profile access: Profile may not exist for all users (e.g. admin1) #}
+              {% with profile=request.user.profile %}
+                {% if profile %}
+                  {{ profile.get_user_type_display }}
+                {% else %}
+                  Requester
+                {% endif %}
+              {% endwith %}
             {% endif %}
           </div>
         </div>
         <!-- Logout Form (POST required for CSRF protection) -->
-        <!-- TODO: switch to action="{% url 'accounts:logout' %}" in Phase 4 -->
+        {# TODO: switch to action="/accounts/logout/" using {% url 'accounts:logout' %} in Phase 4 #}
         <form action="/accounts/logout/" method="post" class="m-0 p-0 d-inline">
           {% csrf_token %}
           <button type="submit" class="btn-signout-link" title="Sign out" aria-label="Sign out">
@@ -119,7 +124,7 @@
       </div>
     {% else %}
       <div class="text-center p-1">
-        <!-- TODO: switch to {% url 'accounts:login' %} in Phase 4 -->
+        {# TODO: switch to {% url 'accounts:login' %} in Phase 4 #}
         <a href="/accounts/login/" class="btn btn-sm btn-outline-maroon w-100" style="color: var(--champagne); border-color: rgba(233,221,200,0.5);">
           <i class="bi bi-box-arrow-in-right"></i> Sign in
         </a>
@@ -127,4 +132,3 @@
     {% endif %}
   </div>
 </aside>
-

@@ -477,3 +477,114 @@ class RoomBackendFoundationTests(TestCase):
         self.assertIn('CS Building', buildings)
         self.assertIn('IT Building', buildings)
         self.assertNotIn('Storage Building', buildings)  # inactive
+
+
+# ---------------------------------------------------------------------------
+# Template rendering tests (Phase 3A) — sidebar and topbar partials
+# ---------------------------------------------------------------------------
+
+class SidebarTopbarRenderTests(TestCase):
+    """
+    Verify that partials/sidebar.html and partials/topbar.html render without
+    raising any exception for the three user roles: anonymous visitor, a normal
+    authenticated user (requester), and a staff/administrator user.
+
+    Uses RequestFactory to build a fake GET request and Django's
+    render_to_string() to exercise the full template engine path.
+    """
+
+    def setUp(self):
+        self.factory = RequestFactory()
+
+        # Staff user (admin-style, no Profile needed)
+        self.staff_user = User.objects.create_user(
+            username='sidebar_staff', password='pass', is_staff=True
+        )
+
+        # Normal authenticated user WITH a Profile
+        self.requester = User.objects.create_user(
+            username='sidebar_requester', password='pass'
+        )
+        Profile.objects.create(
+            user=self.requester,
+            user_type='faculty',
+            college_department='CCS',
+            contact_number='09001234567',
+        )
+
+    def _make_request(self, user, path='/design-preview/'):
+        """Build a minimal GET request with the given user attached."""
+        from django.contrib.auth.models import AnonymousUser
+        from django.contrib.sessions.backends.db import SessionStore
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        request = self.factory.get(path)
+        request.user = user if user is not None else AnonymousUser()
+        # Attach session and message storage so {% csrf_token %} and messages work
+        request.session = SessionStore()
+        request._messages = FallbackStorage(request)
+        return request
+
+    def _render(self, template_name, request):
+        """Render a template with request in context; return the HTML string."""
+        from django.template.loader import render_to_string
+        return render_to_string(template_name, request=request)
+
+    # --- Anonymous visitor ---
+
+    def test_sidebar_anonymous_no_error(self):
+        """sidebar.html renders for an unauthenticated (visitor) user."""
+        from django.contrib.auth.models import AnonymousUser
+        req = self._make_request(AnonymousUser())
+        html = self._render('partials/sidebar.html', req)
+        self.assertIn('/accounts/login/', html)
+        self.assertNotIn('NoReverseMatch', html)
+
+    def test_topbar_anonymous_no_error(self):
+        """topbar.html renders for an unauthenticated (visitor) user."""
+        from django.contrib.auth.models import AnonymousUser
+        req = self._make_request(AnonymousUser())
+        html = self._render('partials/topbar.html', req)
+        self.assertIn('topbar', html)
+
+    # --- Authenticated requester ---
+
+    def test_sidebar_requester_no_error(self):
+        """sidebar.html renders for an authenticated non-staff user."""
+        req = self._make_request(self.requester)
+        html = self._render('partials/sidebar.html', req)
+        self.assertIn('/my-reservations/', html)
+        self.assertNotIn('NoReverseMatch', html)
+
+    def test_topbar_requester_no_error(self):
+        """topbar.html renders for an authenticated non-staff user."""
+        req = self._make_request(self.requester)
+        html = self._render('partials/topbar.html', req)
+        self.assertIn('topbar', html)
+
+    # --- Staff / administrator ---
+
+    def test_sidebar_staff_no_error(self):
+        """sidebar.html renders for a staff/administrator user."""
+        req = self._make_request(self.staff_user)
+        html = self._render('partials/sidebar.html', req)
+        self.assertIn('/manage/', html)
+        self.assertNotIn('NoReverseMatch', html)
+
+    def test_topbar_staff_no_error(self):
+        """topbar.html renders for a staff/administrator user."""
+        req = self._make_request(self.staff_user)
+        html = self._render('partials/topbar.html', req)
+        self.assertIn('topbar', html)
+
+    # --- Staff user WITHOUT a Profile (matches admin1 in production) ---
+
+    def test_sidebar_staff_no_profile_no_error(self):
+        """sidebar.html renders for a staff user who has no Profile row (e.g. admin1)."""
+        staff_no_profile = User.objects.create_user(
+            username='sidebar_staff_noprofile', password='pass', is_staff=True
+        )
+        req = self._make_request(staff_no_profile)
+        html = self._render('partials/sidebar.html', req)
+        self.assertIn('Administrator', html)
+        self.assertNotIn('NoReverseMatch', html)
