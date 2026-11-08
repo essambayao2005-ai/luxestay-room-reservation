@@ -1,0 +1,19 @@
+{% load static %}
+<header class="app-topbar">
+  <div class="topbar-left">
+    <button class="topbar-menu-toggle" type="button" data-action="toggle-sidebar" aria-label="Toggle navigation menu">
+      <i class="bi bi-list"></i>
+    </button>
+    <img src="{% static 'img/msu_logo.png' %}" alt="MSU Logo" class="topbar-mobile-logo">
+    <h1 class="topbar-page-title">
+      {% block page_title %}{{ page_title|default:"Room Checker & Reservation" }}{% endblock %}
+    </h1>
+  </div>
+  <div class="topbar-right">
+    <div class="today-chip" title="Current Academic Date">
+      <i class="bi bi-calendar3"></i>
+      <span>{% now "l, F j, Y" %}</span>
+    </div>
+  </div>
+</header>
+
