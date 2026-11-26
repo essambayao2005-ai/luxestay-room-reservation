@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Profile | MSU-SND Room Reservation{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Page Header -->
+  <div>
+    <h2 class="h2 mb-1">My Profile</h2>
+    <p class="text-small mb-0">
+      Update your personal information and campus details below.
+    </p>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Profile Edit Card -->
+    <div class="col-12 col-lg-7">
+      <div class="glass-card p-4">
+        <h3 class="h3 mb-4">
+          <i class="bi bi-person-circle text-maroon me-2"></i>Personal Information
+        </h3>
+
+        {% if form.non_field_errors %}
+        <div class="custom-alert custom-alert-error mb-3" role="alert">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'accounts:profile' %}" novalidate>
+          {% csrf_token %}
+
+          <div class="row g-3 mb-3">
+            <!-- First Name -->
+            <div class="col-sm-6">
+              <label for="{{ form.first_name.id_for_label }}" class="form-label fw-semibold">First Name</label>
+              <input type="text" name="{{ form.first_name.html_name }}"
+                     id="{{ form.first_name.id_for_label }}"
+                     class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
+                     value="{{ form.first_name.value|default:'' }}">
+              {% if form.first_name.errors %}
+              <div class="invalid-feedback">{{ form.first_name.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+            <!-- Last Name -->
+            <div class="col-sm-6">
+              <label for="{{ form.last_name.id_for_label }}" class="form-label fw-semibold">Last Name</label>
+              <input type="text" name="{{ form.last_name.html_name }}"
+                     id="{{ form.last_name.id_for_label }}"
+                     class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
+                     value="{{ form.last_name.value|default:'' }}">
+              {% if form.last_name.errors %}
+              <div class="invalid-feedback">{{ form.last_name.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="mb-3">
+            <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">Email Address</label>
+            <input type="email" name="{{ form.email.html_name }}"
+                   id="{{ form.email.id_for_label }}"
+                   class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                   value="{{ form.email.value|default:'' }}">
+            {% if form.email.errors %}
+            <div class="invalid-feedback">{{ form.email.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- User Type -->
+          <div class="mb-3">
+            <label for="{{ form.user_type.id_for_label }}" class="form-label fw-semibold">User Type</label>
+            <select name="{{ form.user_type.html_name }}"
+                    id="{{ form.user_type.id_for_label }}"
+                    class="form-select {% if form.user_type.errors %}is-invalid{% endif %}">
+              {% for val, label in form.fields.user_type.choices %}
+              <option value="{{ val }}" {% if form.user_type.value == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% if form.user_type.errors %}
+            <div class="invalid-feedback">{{ form.user_type.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- College / Department -->
+          <div class="mb-3">
+            <label for="{{ form.college_department.id_for_label }}" class="form-label fw-semibold">College / Department</label>
+            <input type="text" name="{{ form.college_department.html_name }}"
+                   id="{{ form.college_department.id_for_label }}"
+                   class="form-control {% if form.college_department.errors %}is-invalid{% endif %}"
+                   value="{{ form.college_department.value|default:'' }}"
+                   placeholder="e.g. College of Engineering">
+            {% if form.college_department.errors %}
+            <div class="invalid-feedback">{{ form.college_department.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Contact Number -->
+          <div class="mb-4">
+            <label for="{{ form.contact_number.id_for_label }}" class="form-label fw-semibold">Contact Number</label>
+            <input type="text" name="{{ form.contact_number.html_name }}"
+                   id="{{ form.contact_number.id_for_label }}"
+                   class="form-control {% if form.contact_number.errors %}is-invalid{% endif %}"
+                   value="{{ form.contact_number.value|default:'' }}"
+                   placeholder="09xxxxxxxxx">
+            {% if form.contact_number.errors %}
+            <div class="invalid-feedback">{{ form.contact_number.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+
+          <button type="submit" class="btn btn-maroon">
+            <i class="bi bi-check-lg me-1"></i> Save Changes
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Account Info Card -->
+    <div class="col-12 col-lg-5 d-flex flex-column gap-4">
+
+      <!-- Username & Role info (read-only display) -->
+      <div class="glass-card p-4">
+        <h3 class="h3 mb-3">
+          <i class="bi bi-shield-check text-maroon me-2"></i>Account Details
+        </h3>
+        <dl class="row mb-0 g-2">
+          <dt class="col-5 text-small fw-semibold text-charcoal">Username</dt>
+          <dd class="col-7 mb-0">
+            <code class="text-ink" style="font-size:14px;">{{ request.user.username }}</code>
+          </dd>
+
+          <dt class="col-5 text-small fw-semibold text-charcoal">Role</dt>
+          <dd class="col-7 mb-0">
+            {% if request.user.is_staff %}
+              <span class="status-pill status-approved" style="font-size:12px;">Administrator</span>
+            {% else %}
+              <span class="status-pill status-pending" style="font-size:12px;">
+                {{ profile.get_user_type_display|default:"Requester" }}
+              </span>
+            {% endif %}
+          </dd>
+
+          <dt class="col-5 text-small fw-semibold text-charcoal">Member since</dt>
+          <dd class="col-7 mb-0 text-small">{{ request.user.date_joined|date:"F j, Y" }}</dd>
+        </dl>
+      </div>
+
+      <!-- Change Password Link Card -->
+      <div class="glass-card p-4">
+        <h3 class="h3 mb-2">
+          <i class="bi bi-lock text-maroon me-2"></i>Password
+        </h3>
+        <p class="text-small text-charcoal mb-3">
+          Keep your account secure by using a strong, unique password.
+        </p>
+        <a href="{% url 'accounts:password_change' %}" class="btn btn-outline-maroon">
+          <i class="bi bi-key me-1"></i> Change Password
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
