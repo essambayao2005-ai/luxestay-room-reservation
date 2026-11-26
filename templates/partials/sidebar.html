@@ -35,7 +35,7 @@
         <i class="bi bi-people"></i>
         <span>Users</span>
       </a>
-      <a href="/manage/reports/" class="sidebar-link {% if '/manage/reports' in request.path %}active{% endif %}">
+      <a href="{% url 'dashboard:reports' %}" class="sidebar-link {% if '/manage/reports' in request.path %}active{% endif %}">
         <i class="bi bi-file-earmark-bar-graph"></i>
         <span>Reports</span>
       </a>

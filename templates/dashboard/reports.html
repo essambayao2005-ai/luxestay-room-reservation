@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reservation Reports | MSU-SND Room Reservation{% endblock %}
+{% block page_title %}Reservation Reports{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Screen Header & Action Buttons (hidden on print) -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 d-print-none">
+    <div>
+      <h2 class="h2 mb-1">Reservation History &amp; Reports</h2>
+      <p class="text-small mb-0">
+        Filter campus reservation history, print formatted reports, or export matching rows to CSV.
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button type="button" class="btn btn-secondary" onclick="window.print()">
+        <i class="bi bi-printer"></i> Print Report
+      </button>
+      <a href="{% url 'dashboard:reports_export' %}{% if filter_querystring %}?{{ filter_querystring }}{% endif %}"
+         class="btn btn-maroon">
+        <i class="bi bi-filetype-csv"></i> Export CSV
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Form (hidden on print) -->
+  <div class="glass-card p-3 d-print-none">
+    {% if form.errors %}
+    <div class="custom-alert custom-alert-error mb-3" role="alert">
+      <i class="bi bi-exclamation-circle-fill"></i>
+      <div>
+        {% for field in form %}
+          {% for error in field.errors %}
+            <div><strong>{{ field.label }}:</strong> {{ error }}</div>
+          {% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <form method="get" action="{% url 'dashboard:reports' %}" class="row g-2 align-items-end">
+      <div class="col-6 col-md-2">
+        <label for="{{ form.date_from.id_for_label }}" class="form-label">{{ form.date_from.label }}</label>
+        {{ form.date_from }}
+      </div>
+      <div class="col-6 col-md-2">
+        <label for="{{ form.date_to.id_for_label }}" class="form-label">{{ form.date_to.label }}</label>
+        {{ form.date_to }}
+      </div>
+      <div class="col-12 col-md-3">
+        <label for="{{ form.room.id_for_label }}" class="form-label">{{ form.room.label }}</label>
+        {{ form.room }}
+      </div>
+      <div class="col-6 col-md-2">
+        <label for="{{ form.requester.id_for_label }}" class="form-label">{{ form.requester.label }}</label>
+        {{ form.requester }}
+      </div>
+      <div class="col-6 col-md-2">
+        <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
+        {{ form.status }}
+      </div>
+      <div class="col-12 col-md-1 d-flex gap-1">
+        <button type="submit" class="btn btn-maroon w-100" title="Apply filters">
+          <i class="bi bi-funnel"></i>
+        </button>
+        {% if filter_querystring %}
+        <a href="{% url 'dashboard:reports' %}" class="btn btn-secondary" title="Reset filters">
+          <i class="bi bi-x-lg"></i>
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Summary Counts Strip (hidden on print; print header has its own summary) -->
+  <div class="glass-card p-3 d-print-none">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-3 flex-wrap tabular-nums">
+        <span class="fw-bold text-ink">Total: {{ summary.total }}</span>
+        <span class="status-pill status-pending">Pending: {{ summary.pending }}</span>
+        <span class="status-pill status-approved">Approved: {{ summary.approved }}</span>
+        <span class="status-pill status-declined">Declined: {{ summary.declined }}</span>
+        <span class="status-pill status-cancelled">Cancelled: {{ summary.cancelled }}</span>
+      </div>
+      {% if filter_parts %}
+      <span class="text-small text-charcoal">
+        Filters: {{ filter_parts|join:" • " }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- SCREEN RESULTS TABLE (paginated 10 per page) -->
+  <div class="d-print-none">
+    {% if reservations %}
+    <div class="glass-card p-0 overflow-hidden">
+      <div class="table-responsive">
+        <table class="custom-table mb-0">
+          <thead>
+            <tr>
+              <th>Date &amp; Time</th>
+              <th>Room &amp; Building</th>
+              <th>Requester</th>
+              <th>Purpose &amp; Attendees</th>
+              <th>Status</th>
+              <th>Admin Remarks</th>
+              <th>Processed By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for res in reservations %}
+            <tr>
+              <td class="tabular-nums">
+                <div class="fw-semibold text-ink">{{ res.reservation_date|date:"M j, Y" }}</div>
+                <div class="text-small text-charcoal">
+                  {{ res.start_time|time:"g:i A" }} – {{ res.end_time|time:"g:i A" }}
+                </div>
+              </td>
+              <td>
+                <div class="fw-semibold text-ink">{{ res.room.name }}</div>
+                <div class="text-small text-charcoal">{{ res.room.building }}</div>
+              </td>
+              <td>
+                <div class="fw-semibold text-ink">{{ res.requester.get_full_name|default:res.requester.username }}</div>
+                {% if res.safe_profile %}
+                <div class="text-small text-charcoal">
+                  {{ res.safe_profile.get_user_type_display }}{% if res.safe_profile.college_department %} • {{ res.safe_profile.college_department }}{% endif %}
+                </div>
+                {% else %}
+                <div class="text-small text-charcoal">@{{ res.requester.username }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <div class="text-ink">{{ res.purpose }}</div>
+                <div class="text-small text-charcoal tabular-nums">{{ res.num_attendees }} attendees</div>
+              </td>
+              <td>
+                <span class="status-pill status-{{ res.status }}">{{ res.get_status_display }}</span>
+              </td>
+              <td>
+                <span class="text-small text-ink">{{ res.admin_remarks|default:"—" }}</span>
+              </td>
+              <td>
+                <span class="text-small text-charcoal">
+                  {% if res.processed_by %}{{ res.processed_by.username }}{% else %}—{% endif %}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pagination (10 per page) -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Reports pagination" class="mt-3">
+      <ul class="pagination justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?{% if filter_querystring %}{{ filter_querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">
+            Previous
+          </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Previous</span></li>
+        {% endif %}
+
+        <li class="page-item disabled">
+          <span class="page-link tabular-nums">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+          </span>
+        </li>
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?{% if filter_querystring %}{{ filter_querystring }}&{% endif %}page={{ page_obj.next_page_number }}">
+            Next
+          </a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Next</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="glass-card empty-state-panel p-5">
+      <div class="empty-state-icon"><i class="bi bi-file-earmark-bar-graph"></i></div>
+      <h4 class="empty-state-title">No Matching Reservations</h4>
+      <p class="empty-state-desc">
+        Adjust the date range or filters above to view reservation history.
+      </p>
+      {% if filter_querystring %}
+      <a href="{% url 'dashboard:reports' %}" class="btn btn-secondary">Reset Filters</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- PRINT-ONLY REPORT LAYOUT (all matching rows up to 500) -->
+  <div class="d-none d-print-block print-report-sheet">
+    <!-- Official University Header -->
+    <div class="d-flex align-items-center justify-content-between border-bottom border-dark pb-3 mb-3">
+      <div class="d-flex align-items-center gap-3">
+        <img src="{% static 'img/msu_logo.png' %}" alt="MSU-SND Logo"
+             style="width: 64px; height: auto; object-fit: contain;">
+        <div>
+          <div class="fw-bold" style="font-size: 16px;">Mindanao State University - Sultan Naga Dimaporo</div>
+          <div class="fw-semibold" style="font-size: 14px;">Reservation Report</div>
+        </div>
+      </div>
+      <div class="text-end tabular-nums" style="font-size: 12px;">
+        <div><strong>Generated:</strong> {{ generated_at|date:"F j, Y g:i A" }}</div>
+        <div>
+          <strong>Filters:</strong>
+          {% if filter_parts %}{{ filter_parts|join:", " }}{% else %}All reservations{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Print Summary Line -->
+    <div class="mb-3 tabular-nums" style="font-size: 12px;">
+      <strong>Summary:</strong>
+      Total: {{ summary.total }} |
+      Pending: {{ summary.pending }} |
+      Approved: {{ summary.approved }} |
+      Declined: {{ summary.declined }} |
+      Cancelled: {{ summary.cancelled }}
+    </div>
+
+    {% if print_capped %}
+    <div class="mb-2" style="font-size: 12px;">
+      <em>Note: Print output is capped at the first {{ print_row_cap }} of {{ summary.total }} matching records. Export CSV for the full dataset.</em>
+    </div>
+    {% endif %}
+
+    {% if print_rows %}
+    <table class="custom-table w-100" style="font-size: 11px;">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Room (Building)</th>
+          <th>Requester</th>
+          <th>Purpose</th>
+          <th>Att.</th>
+          <th>Status</th>
+          <th>Remarks</th>
+          <th>Processed By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for res in print_rows %}
+        <tr>
+          <td class="tabular-nums">{{ res.reservation_date|date:"Y-m-d" }}</td>
+          <td class="tabular-nums">{{ res.start_time|time:"H:i" }}–{{ res.end_time|time:"H:i" }}</td>
+          <td>{{ res.room.name }} ({{ res.room.building }})</td>
+          <td>
+            {{ res.requester.get_full_name|default:res.requester.username }}
+            {% if res.safe_profile %}
+              ({{ res.safe_profile.get_user_type_display }}{% if res.safe_profile.college_department %}, {{ res.safe_profile.college_department }}{% endif %})
+            {% endif %}
+          </td>
+          <td>{{ res.purpose }}</td>
+          <td class="tabular-nums">{{ res.num_attendees }}</td>
+          <td>{{ res.get_status_display }}</td>
+          <td>{{ res.admin_remarks|default:"—" }}</td>
+          <td>{% if res.processed_by %}{{ res.processed_by.username }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>No matching reservations found.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
