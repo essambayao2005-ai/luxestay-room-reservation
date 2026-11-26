@@ -217,13 +217,34 @@ class DashboardAccessAndWorkflowTests(TestCase):
         """Approving a conflicting or past reservation is refused and leaves status pending."""
         self.client.force_login(self.staff)
 
-        # Conflict
+        # Future conflict (uses tomorrow so test passes at any hour of the day)
+        Reservation.objects.create(
+            room=self.room2,
+            requester=self.other,
+            processed_by=self.staff,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(10, 0),
+            end_time=datetime.time(12, 0),
+            purpose='Tomorrow Approved',
+            num_attendees=10,
+            status='approved',
+        )
+        future_conflict = Reservation.objects.create(
+            room=self.room2,
+            requester=self.student,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(11, 0),
+            end_time=datetime.time(13, 0),
+            purpose='Tomorrow Conflicting Pending',
+            num_attendees=10,
+            status='pending',
+        )
         resp_conflict = self.client.post(
-            reverse('dashboard:approve', args=[self.pending_conflict.pk]),
+            reverse('dashboard:approve', args=[future_conflict.pk]),
             follow=True,
         )
-        self.pending_conflict.refresh_from_db()
-        self.assertEqual(self.pending_conflict.status, 'pending')
+        future_conflict.refresh_from_db()
+        self.assertEqual(future_conflict.status, 'pending')
         self.assertIn('already reserved', resp_conflict.content.decode())
 
         # Past
@@ -278,3 +299,272 @@ class DashboardAccessAndWorkflowTests(TestCase):
         resp_staff = self.client.get(reverse('dashboard:home'))
         self.assertEqual(resp_staff.context['pending_count'], 3)
         self.assertIn('sidebar-badge-count', resp_staff.content.decode())
+
+
+# ---------------------------------------------------------------------------
+# Phase 4D: Manage Rooms & Users Tests
+# ---------------------------------------------------------------------------
+
+class ManageRoomsAndUsersTests(TestCase):
+    """Integration tests for /manage/rooms/ and /manage/users/ workflows."""
+
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username='admin1_test', email='admin1@msu.edu.ph', password='pass'
+        )
+        self.staff = User.objects.create_user(
+            username='staff_mgr', email='staff@msu.edu.ph', password='pass', is_staff=True
+        )
+        self.student = User.objects.create_user(
+            username='student.mgr',
+            email='stud@msu.edu.ph',
+            password='Str0ngPassword!',
+            first_name='Juan',
+            last_name='Dela Cruz',
+        )
+        Profile.objects.create(
+            user=self.student,
+            user_type='student',
+            college_department='CCS',
+            contact_number='09123456789',
+        )
+        self.empty_user = User.objects.create_user(
+            username='empty.user',
+            email='empty@msu.edu.ph',
+            password='pass',
+        )
+
+        self.room_with_res = Room.objects.create(
+            name='Occupied Rm 101',
+            building='IT Building',
+            room_type='laboratory',
+            capacity=35,
+            is_active=True,
+        )
+        self.empty_room = Room.objects.create(
+            name='Empty Rm 102',
+            building='CS Building',
+            room_type='lecture',
+            capacity=25,
+            is_active=True,
+        )
+
+        self.tomorrow = timezone.localdate() + datetime.timedelta(days=1)
+        self.reservation = Reservation.objects.create(
+            room=self.room_with_res,
+            requester=self.student,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(11, 0),
+            purpose='Protect Test',
+            num_attendees=15,
+            status='pending',
+        )
+
+    def _make_png_bytes(self):
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new('RGB', (10, 10), color=(100, 30, 43)).save(buf, format='PNG')
+        return buf.getvalue()
+
+    def test_non_staff_and_anonymous_blocked_on_all_room_and_user_urls(self):
+        """Anonymous users redirect to login; non-staff receive 403 on all 4D URLs."""
+        urls = [
+            ('GET', reverse('dashboard:room_list')),
+            ('GET', reverse('dashboard:room_create')),
+            ('GET', reverse('dashboard:room_edit', args=[self.empty_room.pk])),
+            ('POST', reverse('dashboard:room_toggle', args=[self.empty_room.pk])),
+            ('POST', reverse('dashboard:room_delete', args=[self.empty_room.pk])),
+            ('GET', reverse('dashboard:user_list')),
+            ('POST', reverse('dashboard:user_toggle', args=[self.empty_user.pk])),
+            ('POST', reverse('dashboard:user_delete', args=[self.empty_user.pk])),
+        ]
+
+        for method, url in urls:
+            resp = self.client.get(url) if method == 'GET' else self.client.post(url)
+            self.assertEqual(resp.status_code, 302)
+            self.assertIn('/accounts/login/', resp['Location'])
+
+        self.client.force_login(self.student)
+        for method, url in urls:
+            resp = self.client.get(url) if method == 'GET' else self.client.post(url)
+            self.assertEqual(resp.status_code, 403)
+
+    def test_room_image_upload_valid_and_invalid_rejected(self):
+        """Valid PNG uploads; invalid file types and oversized (>2 MB) files are refused."""
+        import tempfile
+        import shutil
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+
+        tmp_media = tempfile.mkdtemp()
+        try:
+            with override_settings(MEDIA_ROOT=tmp_media):
+                self.client.force_login(self.staff)
+                add_url = reverse('dashboard:room_create')
+
+                # 1. Invalid extension/content type (real GIF bytes so ImageField passes, clean_image rejects)
+                import io
+                from PIL import Image
+                gif_buf = io.BytesIO()
+                Image.new('RGB', (10, 10)).save(gif_buf, format='GIF')
+                bad_file = SimpleUploadedFile('anim.gif', gif_buf.getvalue(), content_type='image/gif')
+                resp_bad = self.client.post(add_url, {
+                    'name': 'Bad Img Room',
+                    'building': 'Test Bldg',
+                    'room_type': 'lecture',
+                    'capacity': 20,
+                    'image': bad_file,
+                })
+                self.assertEqual(resp_bad.status_code, 200)
+                self.assertIn('Unsupported file extension', resp_bad.content.decode())
+                self.assertFalse(Room.objects.filter(name='Bad Img Room').exists())
+
+                # 2. Oversized (> 2 MB) valid PNG
+                big_buf = io.BytesIO()
+                Image.new('RGB', (10, 10)).save(big_buf, format='PNG')
+                big_bytes = big_buf.getvalue() + (b'\x00' * (2 * 1024 * 1024 + 10))
+                big_file = SimpleUploadedFile('huge.png', big_bytes, content_type='image/png')
+                resp_big = self.client.post(add_url, {
+                    'name': 'Huge Img Room',
+                    'building': 'Test Bldg',
+                    'room_type': 'lecture',
+                    'capacity': 20,
+                    'image': big_file,
+                })
+                self.assertEqual(resp_big.status_code, 200)
+                self.assertIn('Maximum allowed size is 2 MB', resp_big.content.decode())
+                self.assertFalse(Room.objects.filter(name='Huge Img Room').exists())
+
+                # 3. Valid PNG
+                good_file = SimpleUploadedFile('room.png', self._make_png_bytes(), content_type='image/png')
+                resp_ok = self.client.post(add_url, {
+                    'name': 'Photo Room 301',
+                    'building': 'Test Bldg',
+                    'room_type': 'conference',
+                    'capacity': 15,
+                    'image': good_file,
+                })
+                self.assertRedirects(resp_ok, reverse('dashboard:room_list'))
+                created = Room.objects.get(name='Photo Room 301')
+                self.assertTrue(bool(created.image))
+        finally:
+            shutil.rmtree(tmp_media, ignore_errors=True)
+
+    def test_delete_room_with_reservations_refused_and_without_succeeds(self):
+        """Deleting a room with reservations is refused; deleting an empty room succeeds."""
+        self.client.force_login(self.staff)
+
+        # Protected room
+        resp_protected = self.client.post(
+            reverse('dashboard:room_delete', args=[self.room_with_res.pk]),
+            follow=True,
+        )
+        self.assertTrue(Room.objects.filter(pk=self.room_with_res.pk).exists())
+        self.assertIn('existing reservations', resp_protected.content.decode())
+
+        # Empty room
+        resp_empty = self.client.post(
+            reverse('dashboard:room_delete', args=[self.empty_room.pk]),
+            follow=True,
+        )
+        self.assertFalse(Room.objects.filter(pk=self.empty_room.pk).exists())
+        self.assertIn('has been deleted', resp_empty.content.decode())
+
+    def test_toggle_room_hides_from_public_page(self):
+        """Deactivating a room hides it from '/' and reactivating shows it again."""
+        self.client.force_login(self.staff)
+        toggle_url = reverse('dashboard:room_toggle', args=[self.empty_room.pk])
+
+        # Deactivate
+        self.client.post(toggle_url, follow=True)
+        self.empty_room.refresh_from_db()
+        self.assertFalse(self.empty_room.is_active)
+
+        public_resp = self.client.get('/')
+        self.assertNotIn(self.empty_room, public_resp.context['rooms'])
+
+        # Reactivate
+        self.client.post(toggle_url, follow=True)
+        self.empty_room.refresh_from_db()
+        self.assertTrue(self.empty_room.is_active)
+
+        public_resp2 = self.client.get('/')
+        self.assertIn(self.empty_room, public_resp2.context['rooms'])
+
+    def test_admin_cannot_deactivate_or_delete_self(self):
+        """An admin cannot deactivate or delete their own account."""
+        self.client.force_login(self.staff)
+
+        resp_toggle = self.client.post(
+            reverse('dashboard:user_toggle', args=[self.staff.pk]),
+            follow=True,
+        )
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.is_active)
+        self.assertIn('cannot deactivate your own', resp_toggle.content.decode())
+
+        resp_delete = self.client.post(
+            reverse('dashboard:user_delete', args=[self.staff.pk]),
+            follow=True,
+        )
+        self.assertTrue(User.objects.filter(pk=self.staff.pk).exists())
+        self.assertIn('cannot delete your own', resp_delete.content.decode())
+
+    def test_superuser_cannot_be_deleted(self):
+        """Superuser accounts cannot be deleted from /manage/users/."""
+        self.client.force_login(self.staff)
+        resp = self.client.post(
+            reverse('dashboard:user_delete', args=[self.superuser.pk]),
+            follow=True,
+        )
+        self.assertTrue(User.objects.filter(pk=self.superuser.pk).exists())
+        self.assertIn('Superuser accounts cannot be deleted', resp.content.decode())
+
+    def test_delete_user_with_reservations_refused_and_without_succeeds(self):
+        """Deleting a user with reservations is refused; deleting an empty user succeeds."""
+        self.client.force_login(self.staff)
+
+        resp_protected = self.client.post(
+            reverse('dashboard:user_delete', args=[self.student.pk]),
+            follow=True,
+        )
+        self.assertTrue(User.objects.filter(pk=self.student.pk).exists())
+        self.assertIn('existing reservations', resp_protected.content.decode())
+
+        resp_empty = self.client.post(
+            reverse('dashboard:user_delete', args=[self.empty_user.pk]),
+            follow=True,
+        )
+        self.assertFalse(User.objects.filter(pk=self.empty_user.pk).exists())
+        self.assertIn('has been deleted', resp_empty.content.decode())
+
+    def test_get_on_toggle_and_delete_urls_refused(self):
+        """GET requests on room/user toggle and delete URLs return 405."""
+        self.client.force_login(self.staff)
+        post_only_urls = [
+            reverse('dashboard:room_toggle', args=[self.empty_room.pk]),
+            reverse('dashboard:room_delete', args=[self.empty_room.pk]),
+            reverse('dashboard:user_toggle', args=[self.empty_user.pk]),
+            reverse('dashboard:user_delete', args=[self.empty_user.pk]),
+        ]
+        for url in post_only_urls:
+            resp = self.client.get(url)
+            self.assertEqual(resp.status_code, 405)
+
+    def test_inactive_user_cannot_login(self):
+        """A deactivated user cannot log in and sees an inactive-account message."""
+        self.client.force_login(self.staff)
+        self.client.post(reverse('dashboard:user_toggle', args=[self.student.pk]))
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.is_active)
+
+        self.client.logout()
+        resp = self.client.post(reverse('accounts:login'), {
+            'username': 'student.mgr',
+            'password': 'Str0ngPassword!',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('inactive', resp.content.decode().lower())
+        self.assertNotIn('_auth_user_id', self.client.session)
