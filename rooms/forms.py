@@ -6,6 +6,7 @@ Handles room search and availability queries.
 from django import forms
 from django.utils import timezone
 from .availability import get_buildings
+from .models import Reservation
 
 
 class RoomSearchForm(forms.Form):
@@ -122,3 +123,63 @@ class RoomSearchForm(forms.Form):
 
         return cleaned_data
 
+
+
+class ReservationForm(forms.ModelForm):
+    """Form for creating and editing a room reservation request.
+
+    Exposes only reservation_date, start_time, end_time, purpose, and
+    num_attendees. The view binds `room` and `requester` on the instance
+    BEFORE validation so Reservation.clean() runs capacity and overlap checks.
+    """
+
+    class Meta:
+        model = Reservation
+        fields = [
+            'reservation_date',
+            'start_time',
+            'end_time',
+            'purpose',
+            'num_attendees',
+        ]
+        widgets = {
+            'reservation_date': forms.DateInput(
+                attrs={
+                    'type': 'date',
+                    'class': 'form-control',
+                }
+            ),
+            'start_time': forms.TimeInput(
+                attrs={
+                    'type': 'time',
+                    'class': 'form-control',
+                }
+            ),
+            'end_time': forms.TimeInput(
+                attrs={
+                    'type': 'time',
+                    'class': 'form-control',
+                }
+            ),
+            'purpose': forms.TextInput(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': 'e.g. CS 101 Lecture, Org General Assembly',
+                    'maxlength': '255',
+                }
+            ),
+            'num_attendees': forms.NumberInput(
+                attrs={
+                    'class': 'form-control',
+                    'min': '1',
+                    'placeholder': 'Expected number of attendees',
+                }
+            ),
+        }
+        labels = {
+            'reservation_date': 'Reservation Date',
+            'start_time': 'Start Time',
+            'end_time': 'End Time',
+            'purpose': 'Purpose / Activity',
+            'num_attendees': 'Number of Attendees',
+        }
