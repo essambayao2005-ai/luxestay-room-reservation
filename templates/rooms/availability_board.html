@@ -18,10 +18,10 @@
 
     <!-- Cards / Availability Board View Toggle -->
     <div class="view-toggle-group" role="group" aria-label="Directory View Mode">
-      <a href="/" class="view-toggle-btn" title="Switch to Cards Directory">
+      <a href="{% url 'rooms:room_list' %}" class="view-toggle-btn" title="Switch to Cards Directory">
         <i class="bi bi-grid-fill"></i> Cards
       </a>
-      <a href="/board/" class="view-toggle-btn active" title="Current View: Availability Board">
+      <a href="{% url 'rooms:availability_board' %}" class="view-toggle-btn active" title="Current View: Availability Board">
         <i class="bi bi-calendar3-range"></i> Availability Board
       </a>
     </div>

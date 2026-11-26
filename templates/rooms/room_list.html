@@ -39,7 +39,7 @@
         <i class="bi bi-sliders2 text-maroon me-2"></i>Availability Search & Filters
       </h3>
       {% if is_slot_searched or request.GET.building or request.GET.min_capacity %}
-      <a href="/" class="btn btn-sm btn-secondary">
+      <a href="{% url 'rooms:room_list' %}" class="btn btn-sm btn-secondary">
         <i class="bi bi-arrow-counterclockwise"></i> Clear Filters
       </a>
       {% endif %}
@@ -116,7 +116,7 @@
         </div>
 
         <div class="d-flex gap-2">
-          <a href="/" class="btn btn-secondary">
+          <a href="{% url 'rooms:room_list' %}" class="btn btn-secondary">
             <i class="bi bi-arrow-counterclockwise"></i> Reset
           </a>
           <button type="submit" class="btn btn-maroon">
@@ -241,7 +241,7 @@
     <p class="empty-state-desc">
       Try adjusting your search criteria, selecting a different campus building, reducing the required capacity, or clearing the availability filters.
     </p>
-    <a href="/" class="btn btn-outline-maroon">
+    <a href="{% url 'rooms:room_list' %}" class="btn btn-outline-maroon">
       <i class="bi bi-arrow-counterclockwise"></i> Clear Filters
     </a>
   </div>

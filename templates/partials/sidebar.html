@@ -43,7 +43,7 @@
     {% elif request.user.is_authenticated %}
       <!-- REQUESTER MENU (Student / Faculty) -->
       <span class="nav-section-label">Campus Services</span>
-      <a href="{% url 'rooms:room_list' %}" class="sidebar-link {% if request.path == '/' and not request.GET.view %}active{% endif %}">
+      <a href="{% url 'rooms:room_list' %}" class="sidebar-link {% if request.path == '/' and not request.GET.view or '/reserve/' in request.path %}active{% endif %}">
         <i class="bi bi-buildings"></i>
         <span>Rooms</span>
       </a>
@@ -63,7 +63,7 @@
     {% else %}
       <!-- VISITOR MENU -->
       <span class="nav-section-label">Explore</span>
-      <a href="{% url 'rooms:room_list' %}" class="sidebar-link {% if request.path == '/' and not request.GET.view %}active{% endif %}">
+      <a href="{% url 'rooms:room_list' %}" class="sidebar-link {% if request.path == '/' and not request.GET.view or '/reserve/' in request.path %}active{% endif %}">
         <i class="bi bi-buildings"></i>
         <span>Rooms</span>
       </a>
