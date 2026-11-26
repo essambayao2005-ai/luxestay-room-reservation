@@ -4,11 +4,13 @@ Every view enforces staff permissions via @staff_required and delegates
 approval/decline transitions to rooms/services.py.
 """
 
+import csv
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import BooleanField, Case, Count, Exists, OuterRef, ProtectedError, Q, Value, When
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -19,7 +21,7 @@ from accounts.permissions import get_profile, staff_required
 from rooms.models import Reservation, Room
 from rooms.services import approve_reservation, decline_reservation
 
-from .forms import RoomForm
+from .forms import ReportFilterForm, RoomForm
 
 User = get_user_model()
 
@@ -412,3 +414,178 @@ def user_delete(request, pk):
             "Deactivate the account instead so reservation history is preserved.",
         )
     return redirect(_safe_next_url(request, fallback='dashboard:user_list'))
+
+
+
+# ---------------------------------------------------------------------------
+# Reports & CSV Export (FR-09)
+# ---------------------------------------------------------------------------
+
+PRINT_ROW_CAP = 500
+
+
+def _filter_report_reservations(request):
+    """Shared filtering logic for both the HTML/print report and CSV export.
+    Returns (form, queryset, filter_summary_list).
+    """
+    has_params = any(
+        k in request.GET
+        for k in ('date_from', 'date_to', 'room', 'requester', 'status')
+    )
+    form = ReportFilterForm(request.GET) if has_params else ReportFilterForm()
+
+    qs = (
+        Reservation.objects.select_related(
+            'room', 'requester', 'requester__profile', 'processed_by'
+        )
+        .order_by('-reservation_date', '-start_time', '-id')
+    )
+    filter_parts = []
+
+    if form.is_bound:
+        if form.is_valid():
+            date_from = form.cleaned_data.get('date_from')
+            date_to = form.cleaned_data.get('date_to')
+            room = form.cleaned_data.get('room')
+            requester = (form.cleaned_data.get('requester') or '').strip()
+            status = form.cleaned_data.get('status')
+
+            if date_from:
+                qs = qs.filter(reservation_date__gte=date_from)
+                filter_parts.append(f"From: {date_from.isoformat()}")
+            if date_to:
+                qs = qs.filter(reservation_date__lte=date_to)
+                filter_parts.append(f"To: {date_to.isoformat()}")
+            if room:
+                qs = qs.filter(room=room)
+                filter_parts.append(f"Room: {room.name}")
+            if requester:
+                qs = qs.filter(
+                    Q(requester__username__icontains=requester)
+                    | Q(requester__first_name__icontains=requester)
+                    | Q(requester__last_name__icontains=requester)
+                )
+                filter_parts.append(f"Requester: {requester}")
+            if status:
+                qs = qs.filter(status=status)
+                filter_parts.append(f"Status: {dict(Reservation.STATUS_CHOICES).get(status, status)}")
+        else:
+            qs = qs.none()
+
+    return form, qs, filter_parts
+
+
+def _csv_safe(value):
+    """Neutralize CSV formula injection (prefix cells starting with =, +, -, or @)."""
+    text = '' if value is None else str(value)
+    if text and text[0] in ('=', '+', '-', '@'):
+        return "'" + text
+    return text
+
+
+@staff_required
+def reports(request):
+    """Reservation history report with filters, summary counts, 10/page screen
+    pagination, and a print-ready full dataset (capped at 500 rows).
+    """
+    form, qs, filter_parts = _filter_report_reservations(request)
+
+    if form.is_bound and not form.is_valid():
+        messages.error(request, "Please correct the report filter errors.")
+
+    summary = qs.aggregate(
+        total=Count('id'),
+        pending=Count('id', filter=Q(status='pending')),
+        approved=Count('id', filter=Q(status='approved')),
+        declined=Count('id', filter=Q(status='declined')),
+        cancelled=Count('id', filter=Q(status='cancelled')),
+    )
+
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    screen_rows = list(page_obj.object_list)
+    for r in screen_rows:
+        r.safe_profile = get_profile(r.requester)
+
+    print_rows = list(qs[:PRINT_ROW_CAP])
+    for r in print_rows:
+        r.safe_profile = get_profile(r.requester)
+    print_capped = summary['total'] > PRINT_ROW_CAP
+
+    # Preserve current filter query string (without page) for pagination & CSV export
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
+    filter_querystring = query_params.urlencode()
+
+    return render(request, 'dashboard/reports.html', {
+        'page_title': 'Reservation Reports',
+        'form': form,
+        'summary': summary,
+        'page_obj': page_obj,
+        'reservations': screen_rows,
+        'print_rows': print_rows,
+        'print_capped': print_capped,
+        'print_row_cap': PRINT_ROW_CAP,
+        'filter_parts': filter_parts,
+        'filter_querystring': filter_querystring,
+        'generated_at': timezone.localtime(),
+    })
+
+
+@staff_required
+def reports_export(request):
+    """Export the filtered reservation history to a CSV file."""
+    form, qs, _ = _filter_report_reservations(request)
+
+    if form.is_bound and not form.is_valid():
+        messages.error(request, "Cannot export CSV: please fix the invalid date range.")
+        return redirect('dashboard:reports')
+
+    today_str = timezone.localdate().isoformat()
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="reservations_{today_str}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'Date',
+        'Start Time',
+        'End Time',
+        'Room',
+        'Building',
+        'Requester',
+        'Username',
+        'User Type',
+        'College / Department',
+        'Purpose',
+        'Attendees',
+        'Status',
+        'Admin Remarks',
+        'Processed By',
+    ])
+
+    for res in qs.iterator(chunk_size=200):
+        profile = get_profile(res.requester)
+        user_type = profile.get_user_type_display() if profile else ''
+        college = profile.college_department if profile else ''
+        requester_name = res.requester.get_full_name() or res.requester.username
+        processed_by = res.processed_by.username if res.processed_by else ''
+
+        writer.writerow([
+            _csv_safe(res.reservation_date.isoformat()),
+            _csv_safe(res.start_time.strftime('%H:%M')),
+            _csv_safe(res.end_time.strftime('%H:%M')),
+            _csv_safe(res.room.name),
+            _csv_safe(res.room.building),
+            _csv_safe(requester_name),
+            _csv_safe(res.requester.username),
+            _csv_safe(user_type),
+            _csv_safe(college),
+            _csv_safe(res.purpose),
+            _csv_safe(res.num_attendees),
+            _csv_safe(res.get_status_display()),
+            _csv_safe(res.admin_remarks),
+            _csv_safe(processed_by),
+        ])
+
+    return response
