@@ -5,11 +5,19 @@ and the interactive Availability Board timetable.
 """
 
 import datetime
-from django.shortcuts import render
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
+from accounts.permissions import get_user_reservation_or_404
 from .availability import current_status_map, get_board_data, get_buildings, rooms_with_status
-from .forms import RoomSearchForm
+from .forms import ReservationForm, RoomSearchForm
+from .models import Reservation, Room
+from .services import cancel_reservation, create_reservation, update_pending_reservation
 
 
 def _get_room_initials(name):
@@ -171,3 +179,177 @@ def availability_board(request):
         'view_mode': 'board',
     }
     return render(request, 'rooms/availability_board.html', context)
+
+
+
+def _parse_time(time_str):
+    """Safely parses an HH:MM time string, returning None if invalid."""
+    if not time_str:
+        return None
+    try:
+        return datetime.time.fromisoformat(time_str)
+    except (ValueError, TypeError):
+        return None
+
+
+def _flash_form_errors(request, form):
+    """Surface form/model validation errors via Django messages."""
+    if form.non_field_errors():
+        for err in form.non_field_errors():
+            messages.error(request, err)
+    else:
+        messages.error(request, "Please correct the highlighted errors below.")
+
+
+@login_required
+def reservation_create(request, room_id):
+    """Create a new reservation request for an active room.
+    Inactive or non-existent rooms return HTTP 404.
+    Supports prefilling date and start_time from ?date= and ?start= query params
+    (used by clickable cells on the Availability Board).
+    """
+    room = get_object_or_404(Room, pk=room_id, is_active=True)
+
+    if request.method == 'POST':
+        # Bind room and requester on the instance BEFORE validation so clean() runs
+        # capacity and overlap checks properly.
+        instance = Reservation(room=room, requester=request.user)
+        form = ReservationForm(request.POST, instance=instance)
+        if form.is_valid():
+            try:
+                create_reservation(
+                    room=room,
+                    requester=request.user,
+                    reservation_date=form.cleaned_data['reservation_date'],
+                    start_time=form.cleaned_data['start_time'],
+                    end_time=form.cleaned_data['end_time'],
+                    purpose=form.cleaned_data['purpose'],
+                    num_attendees=form.cleaned_data['num_attendees'],
+                )
+                messages.success(
+                    request,
+                    f"Reservation request for {room.name} submitted and is pending approval.",
+                )
+                return redirect('rooms:my_reservations')
+            except ValidationError as exc:
+                form.add_error(None, exc)
+                _flash_form_errors(request, form)
+        else:
+            _flash_form_errors(request, form)
+    else:
+        initial = {}
+        date_param = request.GET.get('date')
+        if date_param:
+            try:
+                initial['reservation_date'] = datetime.date.fromisoformat(date_param)
+            except (ValueError, TypeError):
+                pass
+        start_param = _parse_time(request.GET.get('start'))
+        if start_param:
+            initial['start_time'] = start_param
+
+        form = ReservationForm(
+            instance=Reservation(room=room, requester=request.user),
+            initial=initial,
+        )
+
+    return render(request, 'rooms/reservation_form.html', {
+        'page_title': f'Reserve {room.name}',
+        'room': room,
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@login_required
+def my_reservations(request):
+    """Display the logged-in user's own reservations, newest first.
+    Supports filtering by status, pagination (10 per page), and avoids N+1 queries
+    with select_related.
+    """
+    status_filter = request.GET.get('status', '').strip()
+    valid_statuses = {code for code, _ in Reservation.STATUS_CHOICES}
+
+    qs = (
+        Reservation.objects.filter(requester=request.user)
+        .select_related('room', 'processed_by')
+        .order_by('-created_at', '-id')
+    )
+    if status_filter in valid_statuses:
+        qs = qs.filter(status=status_filter)
+    else:
+        status_filter = ''
+
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'rooms/my_reservations.html', {
+        'page_title': 'My Reservations',
+        'page_obj': page_obj,
+        'reservations': page_obj.object_list,
+        'status_filter': status_filter,
+        'status_choices': Reservation.STATUS_CHOICES,
+    })
+
+
+@login_required
+def reservation_edit(request, pk):
+    """Edit an existing pending reservation owned by the logged-in user.
+    Returns 404 if not found or owned by another user.
+    Re-validates all rules (including past-date and overlap) via update_pending_reservation().
+    """
+    reservation = get_user_reservation_or_404(request.user, pk)
+
+    if reservation.status != 'pending':
+        messages.error(request, "Only pending reservations can be edited.")
+        return redirect('rooms:my_reservations')
+
+    if request.method == 'POST':
+        form = ReservationForm(request.POST, instance=reservation)
+        if form.is_valid():
+            try:
+                update_pending_reservation(
+                    reservation,
+                    request.user,
+                    reservation_date=form.cleaned_data['reservation_date'],
+                    start_time=form.cleaned_data['start_time'],
+                    end_time=form.cleaned_data['end_time'],
+                    purpose=form.cleaned_data['purpose'],
+                    num_attendees=form.cleaned_data['num_attendees'],
+                )
+                messages.success(request, "Your reservation request has been updated.")
+                return redirect('rooms:my_reservations')
+            except ValidationError as exc:
+                form.add_error(None, exc)
+                _flash_form_errors(request, form)
+        else:
+            _flash_form_errors(request, form)
+    else:
+        form = ReservationForm(instance=reservation)
+
+    return render(request, 'rooms/reservation_form.html', {
+        'page_title': f'Edit Reservation — {reservation.room.name}',
+        'room': reservation.room,
+        'reservation': reservation,
+        'form': form,
+        'is_edit': True,
+    })
+
+
+@login_required
+@require_POST
+def reservation_cancel(request, pk):
+    """Cancel a pending reservation owned by the logged-in user (POST only).
+    Returns 404 if not found or owned by another user.
+    """
+    reservation = get_user_reservation_or_404(request.user, pk)
+    try:
+        cancel_reservation(reservation, request.user)
+        messages.success(
+            request,
+            f"Reservation for {reservation.room.name} on {reservation.reservation_date} has been cancelled.",
+        )
+    except ValidationError as exc:
+        msg = exc.messages[0] if hasattr(exc, 'messages') and exc.messages else str(exc)
+        messages.error(request, msg)
+    return redirect('rooms:my_reservations')
