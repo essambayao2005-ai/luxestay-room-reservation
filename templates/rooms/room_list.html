@@ -207,7 +207,7 @@
 
         <!-- Action Button: Reserve (or Disabled if Occupied) -->
         <div class="mt-auto pt-2">
-          {# TODO: switch to {% url 'rooms:reservation_create' room.id %} in Phase 4 #}
+          {# Reserve button: authenticated users go direct; visitors go via login?next= (Phase 4A) #}
           {% if is_slot_searched and room.is_occupied %}
             <button type="button" class="btn btn-secondary w-100" disabled title="This room is occupied during the requested time slot.">
               <i class="bi bi-slash-circle"></i> Occupied
@@ -218,7 +218,7 @@
                 <i class="bi bi-calendar-plus"></i> Reserve
               </a>
             {% else %}
-              <a href="/accounts/login/?next=/reserve/{{ room.id }}/" class="btn btn-maroon w-100" title="Sign in to reserve this room">
+              <a href="{% url 'accounts:login' %}?next=/reserve/{{ room.id }}/" class="btn btn-maroon w-100" title="Sign in to reserve this room">
                 <i class="bi bi-calendar-plus"></i> Reserve
               </a>
             {% endif %}
