@@ -15,7 +15,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from .forms import ProfileEditForm, RegisterForm
+from .forms import CustomAuthenticationForm, ProfileEditForm, RegisterForm
 from .models import Profile
 from .permissions import get_profile
 
@@ -102,6 +102,7 @@ class CustomLoginView(LoginView):
        Unsafe external ?next values are ignored (url_has_allowed_host_and_scheme).
     """
     template_name = 'accounts/login.html'
+    authentication_form = CustomAuthenticationForm
     redirect_authenticated_user = True
 
     def get_success_url(self):

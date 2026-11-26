@@ -6,7 +6,7 @@ validators and double-entry check are inherited for free.
 
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 
 from .models import Profile
 
@@ -174,3 +174,21 @@ class ProfileEditForm(forms.ModelForm):
                 'An account with this email address already exists.'
             )
         return email
+
+
+class CustomAuthenticationForm(AuthenticationForm):
+    """Extend AuthenticationForm to show a clear inactive-account message
+    when a deactivated user enters their correct password.
+    """
+
+    def clean(self):
+        try:
+            return super().clean()
+        except forms.ValidationError:
+            username = self.cleaned_data.get('username')
+            password = self.cleaned_data.get('password')
+            if username and password:
+                user = User.objects.filter(username=username).first()
+                if user and not user.is_active and user.check_password(password):
+                    self.confirm_login_allowed(user)
+            raise
