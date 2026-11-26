@@ -930,3 +930,288 @@ class AvailabilityBoardViewTests(TestCase):
         self.assertIn('No Rooms Found for this Selection', content)
         self.assertNotIn('timetable-row', content)
 
+
+
+# ---------------------------------------------------------------------------
+# Requester Reservation Flow Tests (Phase 4B)
+# ---------------------------------------------------------------------------
+
+class RequesterReservationViewTests(TestCase):
+    """Integration tests for reserve, my_reservations, edit, and cancel views."""
+
+    def setUp(self):
+        from django.urls import reverse
+        self.reverse = reverse
+
+        self.staff_user = User.objects.create_user(
+            username='req_staff', password='pass', is_staff=True
+        )
+        self.student = User.objects.create_user(
+            username='student.demo', password='pass'
+        )
+        self.other_student = User.objects.create_user(
+            username='other.student', password='pass'
+        )
+
+        self.room = Room.objects.create(
+            name='Engineering Rm 101',
+            building='Engineering Building',
+            room_type='lecture',
+            capacity=30,
+            is_active=True,
+        )
+        self.inactive_room = Room.objects.create(
+            name='Closed Rm 99',
+            building='Old Building',
+            room_type='lecture',
+            capacity=20,
+            is_active=False,
+        )
+
+        self.tomorrow = timezone.localdate() + datetime.timedelta(days=1)
+        self.yesterday = timezone.localdate() - datetime.timedelta(days=1)
+
+        # Approved reservation on self.room tomorrow 10:00 - 12:00
+        self.approved_res = Reservation.objects.create(
+            room=self.room,
+            requester=self.other_student,
+            processed_by=self.staff_user,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(10, 0),
+            end_time=datetime.time(12, 0),
+            purpose='Approved Seminar',
+            num_attendees=20,
+            status='approved',
+        )
+
+    def test_login_required_redirects_with_next(self):
+        """Anonymous users are redirected to login with ?next= on requester routes."""
+        create_url = self.reverse('rooms:reservation_create', args=[self.room.pk])
+        resp = self.client.get(create_url)
+        self.assertRedirects(resp, f'/accounts/login/?next={create_url}', fetch_redirect_response=False)
+
+        my_url = self.reverse('rooms:my_reservations')
+        resp2 = self.client.get(my_url)
+        self.assertRedirects(resp2, f'/accounts/login/?next={my_url}', fetch_redirect_response=False)
+
+    def test_inactive_or_missing_room_returns_404(self):
+        """Visiting the Reserve page for an inactive or missing room returns 404."""
+        self.client.force_login(self.student)
+        resp_inactive = self.client.get(
+            self.reverse('rooms:reservation_create', args=[self.inactive_room.pk])
+        )
+        self.assertEqual(resp_inactive.status_code, 404)
+
+        resp_missing = self.client.get(
+            self.reverse('rooms:reservation_create', args=[999999])
+        )
+        self.assertEqual(resp_missing.status_code, 404)
+
+    def test_prefill_from_query_params(self):
+        """?date= and ?start= query params prefill the reservation form."""
+        self.client.force_login(self.student)
+        tom_str = self.tomorrow.isoformat()
+        url = self.reverse('rooms:reservation_create', args=[self.room.pk]) + f'?date={tom_str}&start=14:00'
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        form = resp.context['form']
+        self.assertEqual(form.initial['reservation_date'], self.tomorrow)
+        self.assertEqual(form.initial['start_time'], datetime.time(14, 0))
+
+    def test_overlap_past_bad_time_and_over_capacity_refused_with_messages(self):
+        """Invalid submissions are refused with validation errors and messages."""
+        self.client.force_login(self.student)
+        url = self.reverse('rooms:reservation_create', args=[self.room.pk])
+
+        # 1. Overlap with approved 10:00-12:00
+        resp_overlap = self.client.post(url, {
+            'reservation_date': self.tomorrow.isoformat(),
+            'start_time': '11:00',
+            'end_time': '13:00',
+            'purpose': 'Conflict Meeting',
+            'num_attendees': 10,
+        })
+        self.assertEqual(resp_overlap.status_code, 200)
+        self.assertIn('already reserved (approved)', resp_overlap.content.decode())
+
+        # 2. Past date
+        resp_past = self.client.post(url, {
+            'reservation_date': self.yesterday.isoformat(),
+            'start_time': '14:00',
+            'end_time': '15:00',
+            'purpose': 'Past Meeting',
+            'num_attendees': 10,
+        })
+        self.assertEqual(resp_past.status_code, 200)
+        self.assertIn('cannot be in the past', resp_past.content.decode())
+
+        # 3. End time <= start time
+        resp_time = self.client.post(url, {
+            'reservation_date': self.tomorrow.isoformat(),
+            'start_time': '16:00',
+            'end_time': '15:00',
+            'purpose': 'Bad Time Order',
+            'num_attendees': 10,
+        })
+        self.assertEqual(resp_time.status_code, 200)
+        self.assertIn('End time must be later than the start time', resp_time.content.decode())
+
+        # 4. Over capacity (room capacity is 30)
+        resp_cap = self.client.post(url, {
+            'reservation_date': self.tomorrow.isoformat(),
+            'start_time': '14:00',
+            'end_time': '15:00',
+            'purpose': 'Too Many People',
+            'num_attendees': 50,
+        })
+        self.assertEqual(resp_cap.status_code, 200)
+        self.assertIn('only fits 30 people', resp_cap.content.decode())
+
+    def test_create_success_redirects_to_my_reservations(self):
+        """A valid reservation is saved as pending and redirects to My Reservations."""
+        self.client.force_login(self.student)
+        url = self.reverse('rooms:reservation_create', args=[self.room.pk])
+        resp = self.client.post(url, {
+            'reservation_date': self.tomorrow.isoformat(),
+            'start_time': '14:00',
+            'end_time': '16:00',
+            'purpose': 'Student Org Workshop',
+            'num_attendees': 25,
+        })
+        self.assertRedirects(resp, self.reverse('rooms:my_reservations'))
+        created = Reservation.objects.get(purpose='Student Org Workshop')
+        self.assertEqual(created.requester, self.student)
+        self.assertEqual(created.status, 'pending')
+
+    def test_my_reservations_shows_only_own_reservations(self):
+        """Users only see their own reservations on My Reservations."""
+        own_res = create_reservation(
+            room=self.room,
+            requester=self.student,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(14, 0),
+            end_time=datetime.time(15, 0),
+            purpose='My Own Study Group',
+            num_attendees=10,
+        )
+        self.client.force_login(self.student)
+        resp = self.client.get(self.reverse('rooms:my_reservations'))
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode()
+        self.assertIn('My Own Study Group', content)
+        self.assertNotIn('Approved Seminar', content)  # belongs to other_student
+        self.assertEqual(list(resp.context['reservations']), [own_res])
+
+    def test_edit_and_cancel_other_users_reservation_returns_404(self):
+        """Attempting to edit or cancel another user's reservation returns 404."""
+        other_res = create_reservation(
+            room=self.room,
+            requester=self.other_student,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(14, 0),
+            end_time=datetime.time(15, 0),
+            purpose='Other Student Event',
+            num_attendees=10,
+        )
+        self.client.force_login(self.student)
+
+        resp_edit = self.client.get(self.reverse('rooms:reservation_edit', args=[other_res.pk]))
+        self.assertEqual(resp_edit.status_code, 404)
+
+        resp_cancel = self.client.post(self.reverse('rooms:reservation_cancel', args=[other_res.pk]))
+        self.assertEqual(resp_cancel.status_code, 404)
+
+    def test_only_pending_can_be_edited_or_cancelled(self):
+        """Non-pending (e.g. approved) reservations cannot be edited or cancelled."""
+        self.client.force_login(self.other_student)
+
+        # approved_res belongs to other_student and is status='approved'
+        resp_edit = self.client.get(
+            self.reverse('rooms:reservation_edit', args=[self.approved_res.pk]),
+            follow=True,
+        )
+        self.assertRedirects(resp_edit, self.reverse('rooms:my_reservations'))
+        self.assertIn('Only pending reservations can be edited', resp_edit.content.decode())
+
+        resp_cancel = self.client.post(
+            self.reverse('rooms:reservation_cancel', args=[self.approved_res.pk]),
+            follow=True,
+        )
+        self.assertRedirects(resp_cancel, self.reverse('rooms:my_reservations'))
+        self.approved_res.refresh_from_db()
+        self.assertEqual(self.approved_res.status, 'approved')
+
+    def test_edit_revalidates_past_and_overlap(self):
+        """Editing a pending reservation re-runs past-date and overlap validation."""
+        pending_res = create_reservation(
+            room=self.room,
+            requester=self.student,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(14, 0),
+            end_time=datetime.time(15, 0),
+            purpose='Editable Session',
+            num_attendees=10,
+        )
+        self.client.force_login(self.student)
+        edit_url = self.reverse('rooms:reservation_edit', args=[pending_res.pk])
+
+        # Move into past -> refused
+        resp_past = self.client.post(edit_url, {
+            'reservation_date': self.yesterday.isoformat(),
+            'start_time': '14:00',
+            'end_time': '15:00',
+            'purpose': 'Editable Session',
+            'num_attendees': 10,
+        })
+        self.assertEqual(resp_past.status_code, 200)
+        self.assertIn('cannot be in the past', resp_past.content.decode())
+
+        # Move into approved 10:00-12:00 -> refused
+        resp_overlap = self.client.post(edit_url, {
+            'reservation_date': self.tomorrow.isoformat(),
+            'start_time': '10:30',
+            'end_time': '11:30',
+            'purpose': 'Editable Session',
+            'num_attendees': 10,
+        })
+        self.assertEqual(resp_overlap.status_code, 200)
+        self.assertIn('already reserved (approved)', resp_overlap.content.decode())
+
+        # Valid edit -> saved
+        resp_ok = self.client.post(edit_url, {
+            'reservation_date': self.tomorrow.isoformat(),
+            'start_time': '15:00',
+            'end_time': '16:00',
+            'purpose': 'Updated Session',
+            'num_attendees': 12,
+        })
+        self.assertRedirects(resp_ok, self.reverse('rooms:my_reservations'))
+        pending_res.refresh_from_db()
+        self.assertEqual(pending_res.purpose, 'Updated Session')
+        self.assertEqual(pending_res.start_time, datetime.time(15, 0))
+
+    def test_cancel_requires_post(self):
+        """GET on cancel endpoint returns 405 and leaves reservation pending; POST cancels it."""
+        pending_res = create_reservation(
+            room=self.room,
+            requester=self.student,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(14, 0),
+            end_time=datetime.time(15, 0),
+            purpose='Cancel Test',
+            num_attendees=10,
+        )
+        self.client.force_login(self.student)
+        cancel_url = self.reverse('rooms:reservation_cancel', args=[pending_res.pk])
+
+        # GET must not cancel
+        resp_get = self.client.get(cancel_url)
+        self.assertEqual(resp_get.status_code, 405)
+        pending_res.refresh_from_db()
+        self.assertEqual(pending_res.status, 'pending')
+
+        # POST cancels
+        resp_post = self.client.post(cancel_url)
+        self.assertRedirects(resp_post, self.reverse('rooms:my_reservations'))
+        pending_res.refresh_from_db()
+        self.assertEqual(pending_res.status, 'cancelled')
