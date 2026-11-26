@@ -1,0 +1,90 @@
+{# Reusable Approve & Decline Bootstrap Modals for a list of pending reservations #}
+{% for res in modal_reservations %}
+  {% if res.status == 'pending' %}
+  <!-- Approve Confirmation Modal -->
+  <div class="modal fade" id="approveModal{{ res.pk }}" tabindex="-1"
+       aria-labelledby="approveModalLabel{{ res.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="border-radius: var(--radius-card); border: 1px solid var(--border);">
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold" id="approveModalLabel{{ res.pk }}">
+            <i class="bi bi-check-circle text-success me-1"></i> Approve Reservation
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          {% if res.has_conflict %}
+          <div class="custom-alert custom-alert-warning mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <div>
+              <strong>Conflict Warning:</strong> This request overlaps an already-approved reservation for {{ res.room.name }}. Approving it will be refused unless the conflict is resolved.
+            </div>
+          </div>
+          {% endif %}
+          <p class="mb-0">
+            Approve <strong>{{ res.room.name }}</strong> on
+            <strong>{{ res.reservation_date|date:"M j, Y" }}</strong>
+            ({{ res.start_time|time:"g:i A" }} – {{ res.end_time|time:"g:i A" }})
+            requested by <strong>{{ res.requester.get_full_name|default:res.requester.username }}</strong>?
+          </p>
+        </div>
+        <div class="modal-footer border-top-0 pt-0">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <form method="post" action="{% url 'dashboard:approve' res.pk %}" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="btn btn-maroon">
+              <i class="bi bi-check-lg"></i> Confirm Approve
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decline Remarks Modal -->
+  <div class="modal fade" id="declineModal{{ res.pk }}" tabindex="-1"
+       aria-labelledby="declineModalLabel{{ res.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="border-radius: var(--radius-card); border: 1px solid var(--border);">
+        <form method="post" action="{% url 'dashboard:decline' res.pk %}" class="m-0">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <div class="modal-header border-bottom-0 pb-0">
+            <h5 class="modal-title fw-bold" id="declineModalLabel{{ res.pk }}">
+              <i class="bi bi-x-circle text-maroon me-1"></i> Decline Reservation
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-small text-charcoal mb-3">
+              Declining <strong>{{ res.room.name }}</strong> on
+              <strong>{{ res.reservation_date|date:"M j, Y" }}</strong>
+              ({{ res.start_time|time:"g:i A" }} – {{ res.end_time|time:"g:i A" }})
+              by <strong>{{ res.requester.get_full_name|default:res.requester.username }}</strong>.
+            </p>
+            <div class="mb-0">
+              <label for="remarksInput{{ res.pk }}" class="form-label">
+                Reason / Admin Remarks <span class="text-danger">*</span>
+              </label>
+              <textarea id="remarksInput{{ res.pk }}"
+                        name="admin_remarks"
+                        class="form-control"
+                        rows="3"
+                        maxlength="255"
+                        placeholder="Explain why this request is declined (visible to the requester)..."
+                        required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer border-top-0 pt-0">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-maroon">
+              <i class="bi bi-x-circle"></i> Decline Request
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+{% endfor %}

@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Reservations | MSU-SND Room Reservation{% endblock %}
+{% block page_title %}Manage Reservations{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h2 class="h2 mb-1">Reservation Requests</h2>
+      <p class="text-small mb-0">
+        Review, approve, or decline campus room reservation requests and inspect full booking history.
+      </p>
+    </div>
+    <a href="{% url 'dashboard:home' %}" class="btn btn-secondary">
+      <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+  </div>
+
+  <!-- Tabs & Search Bar -->
+  <div class="glass-card p-3">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <!-- Tabs: Pending, Approved, History -->
+      <div class="d-flex align-items-center gap-2 flex-wrap" role="tablist" aria-label="Reservation status tabs">
+        <a href="?tab=pending{% if query %}&q={{ query|urlencode }}{% endif %}"
+           class="btn btn-sm {% if tab == 'pending' %}btn-maroon{% else %}btn-secondary{% endif %}">
+          <i class="bi bi-hourglass-split"></i> Pending
+        </a>
+        <a href="?tab=approved{% if query %}&q={{ query|urlencode }}{% endif %}"
+           class="btn btn-sm {% if tab == 'approved' %}btn-maroon{% else %}btn-secondary{% endif %}">
+          <i class="bi bi-check-circle"></i> Approved
+        </a>
+        <a href="?tab=history{% if query %}&q={{ query|urlencode }}{% endif %}"
+           class="btn btn-sm {% if tab == 'history' %}btn-maroon{% else %}btn-secondary{% endif %}">
+          <i class="bi bi-clock-history"></i> History (All)
+        </a>
+      </div>
+
+      <!-- Search Form -->
+      <form method="get" action="" class="d-flex align-items-center gap-2 m-0 flex-wrap">
+        <input type="hidden" name="tab" value="{{ tab }}">
+        <div class="input-group input-group-sm" style="min-width: 260px;">
+          <input type="text"
+                 name="q"
+                 class="form-control"
+                 style="min-height: 36px;"
+                 value="{{ query }}"
+                 placeholder="Search requester, room, purpose..."
+                 aria-label="Search reservations">
+          <button type="submit" class="btn btn-maroon" style="min-height: 36px;">
+            <i class="bi bi-search"></i> Search
+          </button>
+        </div>
+        {% if query %}
+        <a href="?tab={{ tab }}" class="btn btn-sm btn-secondary" style="min-height: 36px;" title="Clear search">
+          <i class="bi bi-x-lg"></i>
+        </a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- Reservations Table -->
+  {% if reservations %}
+  <div class="glass-card p-0 overflow-hidden">
+    <div class="table-responsive">
+      <table class="custom-table mb-0">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Date &amp; Time</th>
+            <th>Requester</th>
+            <th>Purpose</th>
+            <th>Status</th>
+            <th>Remarks</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for res in reservations %}
+          <tr>
+            <td>
+              <div class="fw-semibold text-ink">{{ res.room.name }}</div>
+              <div class="text-small text-charcoal">{{ res.room.building }}</div>
+            </td>
+            <td class="tabular-nums">
+              <div class="fw-semibold text-ink">{{ res.reservation_date|date:"M j, Y" }}</div>
+              <div class="text-small text-charcoal">
+                {{ res.start_time|time:"g:i A" }} – {{ res.end_time|time:"g:i A" }}
+              </div>
+            </td>
+            <td>
+              <div class="fw-semibold text-ink">
+                {{ res.requester.get_full_name|default:res.requester.username }}
+              </div>
+              <div class="text-small text-charcoal">@{{ res.requester.username }}</div>
+              {% with profile=res.requester.profile %}
+                {% if profile %}
+                <div class="text-small text-charcoal">
+                  {{ profile.get_user_type_display }}{% if profile.college_department %} • {{ profile.college_department }}{% endif %}
+                </div>
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td>
+              <div class="text-ink">{{ res.purpose }}</div>
+              <div class="text-small text-charcoal tabular-nums">
+                <i class="bi bi-people"></i> {{ res.num_attendees }} attendee{{ res.num_attendees|pluralize }}
+              </div>
+            </td>
+            <td>
+              <div class="d-flex flex-column align-items-start gap-1">
+                <span class="status-pill status-{{ res.status }}">
+                  {{ res.get_status_display }}
+                </span>
+                {% if res.has_conflict %}
+                <span class="status-pill status-conflict" title="Overlaps an approved reservation for this room">
+                  <i class="bi bi-exclamation-triangle-fill"></i> CONFLICT
+                </span>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              {% if res.admin_remarks %}
+                <span class="text-small text-ink">{{ res.admin_remarks }}</span>
+              {% else %}
+                <span class="text-small text-charcoal">—</span>
+              {% endif %}
+              {% if res.processed_by %}
+                <div class="text-small text-charcoal">by {{ res.processed_by.username }}</div>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if res.status == 'pending' %}
+              <div class="d-inline-flex gap-2">
+                <button type="button"
+                        class="btn btn-sm btn-maroon"
+                        data-bs-toggle="modal"
+                        data-bs-target="#approveModal{{ res.pk }}">
+                  <i class="bi bi-check-lg"></i> Approve
+                </button>
+                <button type="button"
+                        class="btn btn-sm btn-outline-maroon"
+                        data-bs-toggle="modal"
+                        data-bs-target="#declineModal{{ res.pk }}">
+                  <i class="bi bi-x-lg"></i> Decline
+                </button>
+              </div>
+              {% else %}
+              <span class="text-small text-charcoal">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination (10 per page) -->
+  {% if page_obj.has_other_pages %}
+  <nav aria-label="Reservations pagination">
+    <ul class="pagination justify-content-center mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?tab={{ tab }}{% if query %}&q={{ query|urlencode }}{% endif %}&page={{ page_obj.previous_page_number }}">
+          Previous
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+      {% endif %}
+
+      <li class="page-item disabled">
+        <span class="page-link tabular-nums">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+      </li>
+
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?tab={{ tab }}{% if query %}&q={{ query|urlencode }}{% endif %}&page={{ page_obj.next_page_number }}">
+          Next
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="glass-card empty-state-panel p-5">
+    <div class="empty-state-icon">
+      <i class="bi bi-calendar-check"></i>
+    </div>
+    <h4 class="empty-state-title">No Reservations Found</h4>
+    <p class="empty-state-desc">
+      {% if query %}
+        No reservations matched "{{ query }}" in this tab. Try clearing the search filter.
+      {% elif tab == 'pending' %}
+        There are no pending reservation requests waiting for review right now.
+      {% else %}
+        No reservations exist in this category yet.
+      {% endif %}
+    </p>
+    {% if query %}
+    <a href="?tab={{ tab }}" class="btn btn-secondary">Clear Search</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+{% include 'dashboard/_action_modals.html' with modal_reservations=reservations %}
+{% endblock %}

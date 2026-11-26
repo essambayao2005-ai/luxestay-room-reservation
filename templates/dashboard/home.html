@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Admin Dashboard | MSU-SND Room Reservation{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h2 class="h2 mb-1">Campus Scheduling Overview</h2>
+      <p class="text-small mb-0">
+        Monitor pending reservation requests, today's approved schedule, and campus room activity.
+      </p>
+    </div>
+    <a href="{% url 'dashboard:reservation_list' %}" class="btn btn-maroon">
+      <i class="bi bi-calendar-check"></i> Manage Reservations
+    </a>
+  </div>
+
+  <!-- 4 Glass Stat Cards with Count-Up -->
+  <div class="row g-3">
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="glass-card stat-card h-100">
+        <div class="stat-icon-chip">
+          <i class="bi bi-hourglass-split"></i>
+        </div>
+        <div>
+          <div class="stat-number" data-countup="{{ stat_pending }}">{{ stat_pending }}</div>
+          <div class="stat-label">Pending Requests</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="glass-card stat-card h-100">
+        <div class="stat-icon-chip">
+          <i class="bi bi-calendar2-check"></i>
+        </div>
+        <div>
+          <div class="stat-number" data-countup="{{ stat_approved_today }}">{{ stat_approved_today }}</div>
+          <div class="stat-label">Approved Today</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="glass-card stat-card h-100">
+        <div class="stat-icon-chip">
+          <i class="bi bi-door-open"></i>
+        </div>
+        <div>
+          <div class="stat-number" data-countup="{{ stat_active_rooms }}">{{ stat_active_rooms }}</div>
+          <div class="stat-label">Active Rooms</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="glass-card stat-card h-100">
+        <div class="stat-icon-chip">
+          <i class="bi bi-people"></i>
+        </div>
+        <div>
+          <div class="stat-number" data-countup="{{ stat_registered_users }}">{{ stat_registered_users }}</div>
+          <div class="stat-label">Registered Users</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Newest Pending Requests -->
+    <div class="col-12 col-xl-7">
+      <div class="glass-card p-4 h-100 d-flex flex-column">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+          <h3 class="h3 mb-0">
+            <i class="bi bi-inbox text-maroon me-2"></i>Newest Pending Requests
+          </h3>
+          <a href="{% url 'dashboard:reservation_list' %}?tab=pending" class="btn btn-sm btn-secondary">
+            View All
+          </a>
+        </div>
+
+        {% if newest_pending %}
+        <div class="table-responsive">
+          <table class="custom-table mb-0">
+            <thead>
+              <tr>
+                <th>Room &amp; Time</th>
+                <th>Requester</th>
+                <th>Purpose</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for res in newest_pending %}
+              <tr>
+                <td>
+                  <div class="fw-semibold text-ink">{{ res.room.name }}</div>
+                  <div class="text-small text-charcoal tabular-nums">
+                    {{ res.reservation_date|date:"M j, Y" }} • {{ res.start_time|time:"g:i A" }}–{{ res.end_time|time:"g:i A" }}
+                  </div>
+                  {% if res.has_conflict %}
+                  <div class="mt-1">
+                    <span class="status-pill status-conflict">
+                      <i class="bi bi-exclamation-triangle-fill"></i> CONFLICT
+                    </span>
+                  </div>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="fw-semibold text-ink">{{ res.requester.get_full_name|default:res.requester.username }}</div>
+                  <div class="text-small text-charcoal">
+                    {% with profile=res.requester.profile %}
+                      {% if profile %}
+                        {{ profile.get_user_type_display }}{% if profile.college_department %} • {{ profile.college_department }}{% endif %}
+                      {% else %}
+                        User ({{ res.requester.username }})
+                      {% endif %}
+                    {% endwith %}
+                  </div>
+                </td>
+                <td>
+                  <div class="text-ink">{{ res.purpose }}</div>
+                  <div class="text-small text-charcoal tabular-nums">{{ res.num_attendees }} attendees</div>
+                </td>
+                <td class="text-end">
+                  <div class="d-inline-flex gap-2">
+                    <button type="button"
+                            class="btn btn-sm btn-maroon"
+                            data-bs-toggle="modal"
+                            data-bs-target="#approveModal{{ res.pk }}"
+                            title="Approve request">
+                      <i class="bi bi-check-lg"></i> Approve
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-maroon"
+                            data-bs-toggle="modal"
+                            data-bs-target="#declineModal{{ res.pk }}"
+                            title="Decline request">
+                      <i class="bi bi-x-lg"></i> Decline
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state-panel py-4 my-auto">
+          <div class="empty-state-icon"><i class="bi bi-check2-all"></i></div>
+          <h4 class="empty-state-title">No Pending Requests</h4>
+          <p class="empty-state-desc mb-0">All reservation requests have been processed.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Today's Approved Schedule -->
+    <div class="col-12 col-xl-5">
+      <div class="glass-card p-4 h-100 d-flex flex-column">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+          <h3 class="h3 mb-0">
+            <i class="bi bi-calendar-event text-maroon me-2"></i>Today's Schedule
+          </h3>
+          <span class="badge tabular-nums" style="background-color: var(--champagne); color: var(--maroon-dark); border-radius: var(--radius-pill); padding: 6px 12px;">
+            {{ today|date:"M j, Y" }}
+          </span>
+        </div>
+
+        {% if todays_schedule %}
+        <div class="d-flex flex-column gap-2">
+          {% for item in todays_schedule %}
+          <div class="glass-readability p-3 d-flex align-items-start justify-content-between gap-3">
+            <div>
+              <div class="fw-semibold text-ink">{{ item.room.name }}</div>
+              <div class="text-small text-charcoal">{{ item.purpose }}</div>
+              <div class="text-small text-charcoal mt-1">
+                <i class="bi bi-person me-1"></i>{{ item.requester.get_full_name|default:item.requester.username }}
+              </div>
+            </div>
+            <span class="status-pill status-approved tabular-nums flex-shrink-0">
+              {{ item.start_time|time:"g:i A" }} – {{ item.end_time|time:"g:i A" }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state-panel py-4 my-auto">
+          <div class="empty-state-icon"><i class="bi bi-calendar3"></i></div>
+          <h4 class="empty-state-title">No Approved Bookings Today</h4>
+          <p class="empty-state-desc mb-0">All rooms are currently unscheduled for today.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% include 'dashboard/_action_modals.html' with modal_reservations=newest_pending %}
+{% endblock %}

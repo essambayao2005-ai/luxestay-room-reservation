@@ -16,13 +16,16 @@
     {% if request.user.is_authenticated and request.user.is_staff %}
       <!-- ADMINISTRATOR MENU -->
       <span class="nav-section-label">Management</span>
-      <a href="/manage/" class="sidebar-link {% if request.path == '/manage/' %}active{% endif %}">
+      <a href="{% url 'dashboard:home' %}" class="sidebar-link {% if request.path == '/manage/' %}active{% endif %}">
         <i class="bi bi-grid-1x2"></i>
         <span>Dashboard</span>
       </a>
-      <a href="/manage/reservations/" class="sidebar-link {% if '/manage/reservations' in request.path %}active{% endif %}">
+      <a href="{% url 'dashboard:reservation_list' %}" class="sidebar-link {% if '/manage/reservations' in request.path %}active{% endif %}">
         <i class="bi bi-calendar-check"></i>
         <span>Reservations</span>
+        {% if pending_count %}
+        <span class="sidebar-badge-count tabular-nums">{{ pending_count }}</span>
+        {% endif %}
       </a>
       <a href="/manage/rooms/" class="sidebar-link {% if '/manage/rooms' in request.path %}active{% endif %}">
         <i class="bi bi-door-open"></i>
