@@ -160,17 +160,17 @@
           {% endif %}
 
           <!-- 14 Free Hour Cells (clickable to reserve) -->
+          {% url 'rooms:reservation_create' item.room.id as reserve_url %}
           {% for h in board.hours %}
-          {# TODO: switch to {% url 'rooms:reservation_create' item.room.id %} in Phase 4 #}
           {% if request.user.is_authenticated %}
-          <a href="/reserve/{{ item.room.id }}/?date={{ selected_date_str }}&start={{ h.time_24 }}"
+          <a href="{{ reserve_url }}?date={{ selected_date_str }}&start={{ h.time_24 }}"
              class="timetable-cell"
              aria-label="Reserve {{ item.room.name }} on {{ selected_date_str }} starting at {{ h.label }}"
              title="Reserve {{ item.room.name }} at {{ h.label }}">
             <span class="cell-hover-plus" aria-hidden="true">+</span>
           </a>
           {% else %}
-          <a href="/accounts/login/?next=/reserve/{{ item.room.id }}/%3Fdate={{ selected_date_str }}%26start={{ h.time_24 }}"
+          <a href="{% url 'accounts:login' %}?next={{ reserve_url }}%3Fdate%3D{{ selected_date_str }}%26start%3D{{ h.time_24 }}"
              class="timetable-cell"
              aria-label="Sign in to reserve {{ item.room.name }} on {{ selected_date_str }} at {{ h.label }}"
              title="Sign in to reserve at {{ h.label }}">
