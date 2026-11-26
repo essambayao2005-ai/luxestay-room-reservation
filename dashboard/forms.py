@@ -7,7 +7,7 @@ import os
 from django import forms
 from django.core.files.uploadedfile import UploadedFile
 
-from rooms.models import Room
+from rooms.models import Reservation, Room
 
 ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 ALLOWED_IMAGE_CONTENT_TYPES = {'image/jpeg', 'image/jpg', 'image/png', 'image/webp'}
@@ -78,3 +78,47 @@ class RoomForm(forms.ModelForm):
             )
 
         return image
+
+
+class ReportFilterForm(forms.Form):
+    """GET filter form for reservation history reports and CSV export."""
+
+    date_from = forms.DateField(
+        required=False,
+        label='From Date',
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+    )
+    date_to = forms.DateField(
+        required=False,
+        label='To Date',
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+    )
+    room = forms.ModelChoiceField(
+        queryset=Room.objects.order_by('building', 'name'),
+        required=False,
+        empty_label='All Rooms',
+        label='Room',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    requester = forms.CharField(
+        required=False,
+        label='Requester',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Name or username',
+        }),
+    )
+    status = forms.ChoiceField(
+        choices=[('', 'All Statuses')] + Reservation.STATUS_CHOICES,
+        required=False,
+        label='Status',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        date_from = cleaned.get('date_from')
+        date_to = cleaned.get('date_to')
+        if date_from and date_to and date_from > date_to:
+            self.add_error('date_to', '"To Date" cannot be earlier than "From Date".')
+        return cleaned

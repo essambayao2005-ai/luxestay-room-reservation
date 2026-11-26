@@ -25,4 +25,8 @@ urlpatterns = [
     path('users/', views.user_list, name='user_list'),
     path('users/<int:pk>/toggle/', views.user_toggle, name='user_toggle'),
     path('users/<int:pk>/delete/', views.user_delete, name='user_delete'),
+
+    # Reports (history, print, CSV export)
+    path('reports/', views.reports, name='reports'),
+    path('reports/export/', views.reports_export, name='reports_export'),
 ]
