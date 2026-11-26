@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if is_edit %}Edit {{ room.name }}{% else %}Add Room{% endif %} | MSU-SND Room Reservation{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Room{% else %}Add Room{% endif %}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h2 class="h2 mb-1">{% if is_edit %}Edit Room: {{ room.name }}{% else %}Add New Campus Room{% endif %}</h2>
+      <p class="text-small mb-0">
+        Configure room details, capacity, and an optional photo (JPG, PNG, or WEBP up to 2 MB).
+      </p>
+    </div>
+    <a href="{% url 'dashboard:room_list' %}" class="btn btn-secondary">
+      <i class="bi bi-arrow-left"></i> Back to Rooms
+    </a>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-12 col-lg-8">
+      <div class="glass-card p-4">
+        {% if form.non_field_errors %}
+        <div class="custom-alert custom-alert-error mb-3" role="alert">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+
+          <div class="row g-3">
+            <!-- Name -->
+            <div class="col-12 col-md-6">
+              <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }}</label>
+              {{ form.name }}
+              {% if form.name.errors %}
+              <div class="text-danger mt-1" style="font-size: 13px;">{{ form.name.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Building -->
+            <div class="col-12 col-md-6">
+              <label for="{{ form.building.id_for_label }}" class="form-label">{{ form.building.label }}</label>
+              {{ form.building }}
+              {% if form.building.errors %}
+              <div class="text-danger mt-1" style="font-size: 13px;">{{ form.building.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Room Type -->
+            <div class="col-12 col-md-6">
+              <label for="{{ form.room_type.id_for_label }}" class="form-label">{{ form.room_type.label }}</label>
+              {{ form.room_type }}
+              {% if form.room_type.errors %}
+              <div class="text-danger mt-1" style="font-size: 13px;">{{ form.room_type.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Capacity -->
+            <div class="col-12 col-md-6">
+              <label for="{{ form.capacity.id_for_label }}" class="form-label">{{ form.capacity.label }}</label>
+              {{ form.capacity }}
+              {% if form.capacity.errors %}
+              <div class="text-danger mt-1" style="font-size: 13px;">{{ form.capacity.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Description -->
+            <div class="col-12">
+              <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+              {{ form.description }}
+              {% if form.description.errors %}
+              <div class="text-danger mt-1" style="font-size: 13px;">{{ form.description.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Image Upload -->
+            <div class="col-12">
+              <label for="{{ form.image.id_for_label }}" class="form-label">{{ form.image.label }}</label>
+              {{ form.image }}
+              {% if form.image.errors %}
+              <div class="text-danger mt-1" style="font-size: 13px;">{{ form.image.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="d-flex gap-3 mt-4 flex-wrap">
+            <button type="submit" class="btn btn-maroon">
+              <i class="bi bi-check-lg"></i> {% if is_edit %}Save Changes{% else %}Create Room{% endif %}
+            </button>
+            <a href="{% url 'dashboard:room_list' %}" class="btn btn-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Current Image Preview -->
+    <div class="col-12 col-lg-4">
+      <div class="glass-card p-4">
+        <h3 class="h3 mb-3">
+          <i class="bi bi-image text-maroon me-2"></i>Room Photo Preview
+        </h3>
+        {% if is_edit and room.image %}
+          <img src="{{ room.image.url }}" alt="{{ room.name }}"
+               class="w-100"
+               style="max-height: 240px; object-fit: cover; border-radius: var(--radius-control); border: 1px solid var(--border);">
+          <p class="text-small text-charcoal mt-2 mb-0">
+            Current photo for {{ room.name }}. Upload a new file to replace it.
+          </p>
+        {% else %}
+          <div class="empty-state-panel py-4">
+            <div class="empty-state-icon"><i class="bi bi-image"></i></div>
+            <p class="text-small text-charcoal mb-0">No photo uploaded yet.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

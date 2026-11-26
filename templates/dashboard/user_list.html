@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Users | MSU-SND Room Reservation{% endblock %}
+{% block page_title %}Manage Users{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h2 class="h2 mb-1">Registered Users</h2>
+      <p class="text-small mb-0">
+        View campus accounts, filter by role or status, and activate, deactivate, or delete eligible accounts.
+      </p>
+    </div>
+    <a href="{% url 'dashboard:home' %}" class="btn btn-secondary">
+      <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+  </div>
+
+  <!-- Search & Filters -->
+  <div class="glass-card p-3">
+    <form method="get" action="" class="row g-2 align-items-end">
+      <div class="col-12 col-md-4">
+        <label for="userSearch" class="form-label">Search Name, Username, or Email</label>
+        <input type="text"
+               id="userSearch"
+               name="q"
+               class="form-control"
+               value="{{ query }}"
+               placeholder="e.g. student.demo, Juan">
+      </div>
+      <div class="col-6 col-md-3">
+        <label for="userTypeFilter" class="form-label">User Type</label>
+        <select id="userTypeFilter" name="user_type" class="form-select">
+          <option value="" {% if not user_type %}selected{% endif %}>All Types</option>
+          {% for code, label in user_type_choices %}
+          <option value="{{ code }}" {% if user_type == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label for="userActiveFilter" class="form-label">Status</label>
+        <select id="userActiveFilter" name="active" class="form-select">
+          <option value="" {% if not active_filter %}selected{% endif %}>All Statuses</option>
+          <option value="active" {% if active_filter == 'active' %}selected{% endif %}>Active Only</option>
+          <option value="inactive" {% if active_filter == 'inactive' %}selected{% endif %}>Inactive Only</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-maroon w-100">
+          <i class="bi bi-funnel"></i> Filter
+        </button>
+        {% if query or user_type or active_filter %}
+        <a href="{% url 'dashboard:user_list' %}" class="btn btn-secondary" title="Clear filters">
+          <i class="bi bi-x-lg"></i>
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Users Table -->
+  {% if users %}
+  <div class="glass-card p-0 overflow-hidden">
+    <div class="table-responsive">
+      <table class="custom-table mb-0">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th>User Type &amp; College</th>
+            <th>Reservations</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>
+              <div class="fw-semibold text-ink">
+                {{ u.get_full_name|default:u.username }}
+                {% if u.is_superuser %}
+                  <span class="badge ms-1" style="background: var(--champagne); color: var(--maroon-dark); font-size: 11px;">Superuser</span>
+                {% elif u.is_staff %}
+                  <span class="badge ms-1" style="background: var(--champagne); color: var(--maroon-dark); font-size: 11px;">Staff</span>
+                {% endif %}
+              </div>
+              <div class="text-small text-charcoal">@{{ u.username }}</div>
+            </td>
+            <td class="text-small text-ink">{{ u.email|default:"—" }}</td>
+            <td>
+              {% if u.safe_profile %}
+                <div class="text-ink">{{ u.safe_profile.get_user_type_display }}</div>
+                <div class="text-small text-charcoal">{{ u.safe_profile.college_department|default:"—" }}</div>
+              {% else %}
+                <span class="text-small text-charcoal">No profile</span>
+              {% endif %}
+            </td>
+            <td class="tabular-nums">{{ u.reservation_count }}</td>
+            <td>
+              {% if u.is_active %}
+                <span class="status-pill status-approved">Active</span>
+              {% else %}
+                <span class="status-pill status-cancelled">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if u.pk == request.user.pk %}
+                <span class="text-small text-charcoal">Current account</span>
+              {% else %}
+              <div class="d-inline-flex gap-2">
+                <form method="post" action="{% url 'dashboard:user_toggle' u.pk %}" class="m-0 d-inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button type="submit"
+                          class="btn btn-sm {% if u.is_active %}btn-outline-maroon{% else %}btn-maroon{% endif %}">
+                    {% if u.is_active %}
+                      <i class="bi bi-person-slash"></i> Deactivate
+                    {% else %}
+                      <i class="bi bi-person-check"></i> Activate
+                    {% endif %}
+                  </button>
+                </form>
+                {% if not u.is_superuser %}
+                <button type="button"
+                        class="btn btn-sm btn-outline-maroon"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteUserModal{{ u.pk }}"
+                        title="Delete user">
+                  <i class="bi bi-trash"></i>
+                </button>
+                {% endif %}
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination (10 per page) -->
+  {% if page_obj.has_other_pages %}
+  <nav aria-label="Users pagination">
+    <ul class="pagination justify-content-center mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if user_type %}user_type={{ user_type }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">
+          Previous
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+      {% endif %}
+
+      <li class="page-item disabled">
+        <span class="page-link tabular-nums">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+      </li>
+
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if user_type %}user_type={{ user_type }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}page={{ page_obj.next_page_number }}">
+          Next
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="glass-card empty-state-panel p-5">
+    <div class="empty-state-icon"><i class="bi bi-people"></i></div>
+    <h4 class="empty-state-title">No Users Found</h4>
+    <p class="empty-state-desc">
+      No registered accounts matched your current search or filter criteria.
+    </p>
+    <a href="{% url 'dashboard:user_list' %}" class="btn btn-secondary">Clear Filters</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block modals %}
+  {% for u in users %}
+    {% if u.pk != request.user.pk and not u.is_superuser %}
+    <div class="modal fade" id="deleteUserModal{{ u.pk }}" tabindex="-1"
+         aria-labelledby="deleteUserLabel{{ u.pk }}" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: var(--radius-card); border: 1px solid var(--border);">
+          <div class="modal-header border-bottom-0 pb-0">
+            <h5 class="modal-title fw-bold" id="deleteUserLabel{{ u.pk }}">
+              <i class="bi bi-trash text-maroon me-1"></i> Delete User
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            {% if u.reservation_count %}
+            <div class="custom-alert custom-alert-warning mb-3" role="alert">
+              <i class="bi bi-exclamation-triangle-fill"></i>
+              <div>
+                <strong>{{ u.username }}</strong> has {{ u.reservation_count }} reservation{{ u.reservation_count|pluralize }}. Deleting this account will be refused—consider deactivating it instead.
+              </div>
+            </div>
+            {% endif %}
+            <p class="mb-0">
+              Are you sure you want to permanently delete user <strong>{{ u.get_full_name|default:u.username }}</strong> (<code>@{{ u.username }}</code>)?
+            </p>
+          </div>
+          <div class="modal-footer border-top-0 pt-0">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <form method="post" action="{% url 'dashboard:user_delete' u.pk %}" class="m-0">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button type="submit" class="btn btn-maroon">
+                <i class="bi bi-trash"></i> Delete User
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+{% endblock %}

@@ -27,11 +27,11 @@
         <span class="sidebar-badge-count tabular-nums">{{ pending_count }}</span>
         {% endif %}
       </a>
-      <a href="/manage/rooms/" class="sidebar-link {% if '/manage/rooms' in request.path %}active{% endif %}">
+      <a href="{% url 'dashboard:room_list' %}" class="sidebar-link {% if '/manage/rooms' in request.path %}active{% endif %}">
         <i class="bi bi-door-open"></i>
         <span>Rooms</span>
       </a>
-      <a href="/manage/users/" class="sidebar-link {% if '/manage/users' in request.path %}active{% endif %}">
+      <a href="{% url 'dashboard:user_list' %}" class="sidebar-link {% if '/manage/users' in request.path %}active{% endif %}">
         <i class="bi bi-people"></i>
         <span>Users</span>
       </a>

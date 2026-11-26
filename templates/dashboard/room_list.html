@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Rooms | MSU-SND Room Reservation{% endblock %}
+{% block page_title %}Manage Rooms{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column gap-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h2 class="h2 mb-1">Campus Rooms</h2>
+      <p class="text-small mb-0">
+        Add, edit, activate/deactivate, or remove campus rooms. Rooms with reservations cannot be deleted.
+      </p>
+    </div>
+    <a href="{% url 'dashboard:room_create' %}" class="btn btn-maroon">
+      <i class="bi bi-plus-lg"></i> Add Room
+    </a>
+  </div>
+
+  <!-- Search & Filters -->
+  <div class="glass-card p-3">
+    <form method="get" action="" class="row g-2 align-items-end">
+      <div class="col-12 col-md-4">
+        <label for="roomSearch" class="form-label">Search Name / Building</label>
+        <input type="text"
+               id="roomSearch"
+               name="q"
+               class="form-control"
+               value="{{ query }}"
+               placeholder="e.g. Lab 101, Engineering">
+      </div>
+      <div class="col-6 col-md-3">
+        <label for="roomBuilding" class="form-label">Building</label>
+        <select id="roomBuilding" name="building" class="form-select">
+          <option value="" {% if not selected_building %}selected{% endif %}>All Buildings</option>
+          {% for bldg in buildings %}
+          <option value="{{ bldg }}" {% if selected_building == bldg %}selected{% endif %}>{{ bldg }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label for="roomActive" class="form-label">Status</label>
+        <select id="roomActive" name="active" class="form-select">
+          <option value="" {% if not active_filter %}selected{% endif %}>All Statuses</option>
+          <option value="active" {% if active_filter == 'active' %}selected{% endif %}>Active Only</option>
+          <option value="inactive" {% if active_filter == 'inactive' %}selected{% endif %}>Inactive Only</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-maroon w-100">
+          <i class="bi bi-funnel"></i> Filter
+        </button>
+        {% if query or selected_building or active_filter %}
+        <a href="{% url 'dashboard:room_list' %}" class="btn btn-secondary" title="Clear filters">
+          <i class="bi bi-x-lg"></i>
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Rooms Table -->
+  {% if rooms %}
+  <div class="glass-card p-0 overflow-hidden">
+    <div class="table-responsive">
+      <table class="custom-table mb-0">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Building &amp; Type</th>
+            <th>Capacity</th>
+            <th>Reservations</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for room in rooms %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-3">
+                {% if room.image %}
+                <img src="{{ room.image.url }}" alt="{{ room.name }}"
+                     style="width: 44px; height: 44px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border);">
+                {% else %}
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: var(--champagne); color: var(--maroon); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;">
+                  {{ room.name|slice:":2"|upper }}
+                </div>
+                {% endif %}
+                <div>
+                  <div class="fw-semibold text-ink">{{ room.name }}</div>
+                  {% if room.description %}
+                  <div class="text-small text-charcoal text-truncate" style="max-width: 240px;">
+                    {{ room.description }}
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="text-ink">{{ room.building|default:"—" }}</div>
+              <div class="text-small text-charcoal">{{ room.get_room_type_display }}</div>
+            </td>
+            <td class="tabular-nums">
+              <i class="bi bi-people text-charcoal me-1"></i>{{ room.capacity }}
+            </td>
+            <td class="tabular-nums">
+              {{ room.reservation_count }}
+            </td>
+            <td>
+              {% if room.is_active %}
+                <span class="status-pill status-approved">Active</span>
+              {% else %}
+                <span class="status-pill status-cancelled">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
+                <a href="{% url 'dashboard:room_edit' room.pk %}" class="btn btn-sm btn-secondary" title="Edit room">
+                  <i class="bi bi-pencil"></i> Edit
+                </a>
+                <form method="post" action="{% url 'dashboard:room_toggle' room.pk %}" class="m-0 d-inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button type="submit"
+                          class="btn btn-sm {% if room.is_active %}btn-outline-maroon{% else %}btn-maroon{% endif %}"
+                          title="{% if room.is_active %}Deactivate{% else %}Activate{% endif %} room">
+                    {% if room.is_active %}
+                      <i class="bi bi-pause-circle"></i> Deactivate
+                    {% else %}
+                      <i class="bi bi-play-circle"></i> Activate
+                    {% endif %}
+                  </button>
+                </form>
+                <button type="button"
+                        class="btn btn-sm btn-outline-maroon"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteRoomModal{{ room.pk }}"
+                        title="Delete room">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination (10 per page) -->
+  {% if page_obj.has_other_pages %}
+  <nav aria-label="Rooms pagination">
+    <ul class="pagination justify-content-center mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if selected_building %}building={{ selected_building|urlencode }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">
+          Previous
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+      {% endif %}
+
+      <li class="page-item disabled">
+        <span class="page-link tabular-nums">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+      </li>
+
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if selected_building %}building={{ selected_building|urlencode }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}page={{ page_obj.next_page_number }}">
+          Next
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="glass-card empty-state-panel p-5">
+    <div class="empty-state-icon"><i class="bi bi-door-open"></i></div>
+    <h4 class="empty-state-title">No Rooms Found</h4>
+    <p class="empty-state-desc">
+      {% if query or selected_building or active_filter %}
+        No rooms matched your current filters.
+      {% else %}
+        No campus rooms have been added yet.
+      {% endif %}
+    </p>
+    <div class="d-flex gap-2 justify-content-center">
+      {% if query or selected_building or active_filter %}
+      <a href="{% url 'dashboard:room_list' %}" class="btn btn-secondary">Clear Filters</a>
+      {% endif %}
+      <a href="{% url 'dashboard:room_create' %}" class="btn btn-maroon">
+        <i class="bi bi-plus-lg"></i> Add Room
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block modals %}
+  {% for room in rooms %}
+  <div class="modal fade" id="deleteRoomModal{{ room.pk }}" tabindex="-1"
+       aria-labelledby="deleteRoomLabel{{ room.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="border-radius: var(--radius-card); border: 1px solid var(--border);">
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold" id="deleteRoomLabel{{ room.pk }}">
+            <i class="bi bi-trash text-maroon me-1"></i> Delete Room
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          {% if room.reservation_count %}
+          <div class="custom-alert custom-alert-warning mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <div>
+              <strong>{{ room.name }}</strong> has {{ room.reservation_count }} reservation{{ room.reservation_count|pluralize }}. Deleting it will be refused to preserve history—consider deactivating it instead.
+            </div>
+          </div>
+          {% endif %}
+          <p class="mb-0">
+            Are you sure you want to delete <strong>{{ room.name }}</strong> ({{ room.building }})?
+          </p>
+        </div>
+        <div class="modal-footer border-top-0 pt-0">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <form method="post" action="{% url 'dashboard:room_delete' room.pk %}" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="btn btn-maroon">
+              <i class="bi bi-trash"></i> Delete Room
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% endblock %}
