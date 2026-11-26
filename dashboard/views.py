@@ -8,15 +8,18 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import BooleanField, Case, Exists, OuterRef, Q, Value, When
+from django.db.models import BooleanField, Case, Count, Exists, OuterRef, ProtectedError, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from accounts.permissions import staff_required
+from accounts.models import Profile
+from accounts.permissions import get_profile, staff_required
 from rooms.models import Reservation, Room
 from rooms.services import approve_reservation, decline_reservation
+
+from .forms import RoomForm
 
 User = get_user_model()
 
@@ -187,3 +190,225 @@ def reservation_decline(request, pk):
         messages.error(request, _extract_error_message(exc))
 
     return redirect(_safe_next_url(request))
+
+
+
+# ---------------------------------------------------------------------------
+# Room Management (FR-07)
+# ---------------------------------------------------------------------------
+
+@staff_required
+def room_list(request):
+    """List all campus rooms (active and inactive) with search, building, and status filters."""
+    query = request.GET.get('q', '').strip()
+    building = request.GET.get('building', '').strip()
+    active_filter = request.GET.get('active', '').strip().lower()
+
+    qs = Room.objects.annotate(reservation_count=Count('reservations')).order_by('building', 'name')
+
+    if query:
+        qs = qs.filter(Q(name__icontains=query) | Q(building__icontains=query))
+    if building:
+        qs = qs.filter(building=building)
+    if active_filter == 'active':
+        qs = qs.filter(is_active=True)
+    elif active_filter == 'inactive':
+        qs = qs.filter(is_active=False)
+    else:
+        active_filter = ''
+
+    buildings = list(
+        Room.objects.exclude(building='')
+        .values_list('building', flat=True)
+        .distinct()
+        .order_by('building')
+    )
+
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'dashboard/room_list.html', {
+        'page_title': 'Manage Rooms',
+        'query': query,
+        'selected_building': building,
+        'active_filter': active_filter,
+        'buildings': buildings,
+        'page_obj': page_obj,
+        'rooms': page_obj.object_list,
+    })
+
+
+@staff_required
+def room_create(request):
+    """Add a new campus room with optional validated photo upload."""
+    if request.method == 'POST':
+        form = RoomForm(request.POST, request.FILES)
+        if form.is_valid():
+            room = form.save()
+            messages.success(request, f"Room '{room.name}' has been added.")
+            return redirect('dashboard:room_list')
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = RoomForm()
+
+    return render(request, 'dashboard/room_form.html', {
+        'page_title': 'Add Room',
+        'form': form,
+        'is_edit': False,
+    })
+
+
+@staff_required
+def room_edit(request, pk):
+    """Edit an existing campus room and preview/replace its photo."""
+    room = get_object_or_404(Room, pk=pk)
+
+    if request.method == 'POST':
+        form = RoomForm(request.POST, request.FILES, instance=room)
+        if form.is_valid():
+            room = form.save()
+            messages.success(request, f"Room '{room.name}' has been updated.")
+            return redirect('dashboard:room_list')
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = RoomForm(instance=room)
+
+    return render(request, 'dashboard/room_form.html', {
+        'page_title': f'Edit Room — {room.name}',
+        'form': form,
+        'room': room,
+        'is_edit': True,
+    })
+
+
+@staff_required
+@require_POST
+def room_toggle(request, pk):
+    """Activate or deactivate a room via POST."""
+    room = get_object_or_404(Room, pk=pk)
+    room.is_active = not room.is_active
+    room.save(update_fields=['is_active'])
+    state_label = "activated" if room.is_active else "deactivated"
+    messages.success(request, f"Room '{room.name}' has been {state_label}.")
+    return redirect(_safe_next_url(request, fallback='dashboard:room_list'))
+
+
+@staff_required
+@require_POST
+def room_delete(request, pk):
+    """Delete a room only if it has no reservations (ProtectedError).
+    Never deletes reservations; suggests deactivating instead.
+    """
+    room = get_object_or_404(Room, pk=pk)
+    room_name = room.name
+    try:
+        room.delete()
+        messages.success(request, f"Room '{room_name}' has been deleted.")
+    except ProtectedError:
+        messages.error(
+            request,
+            f"Cannot delete '{room_name}' because it has existing reservations. "
+            "Deactivate the room instead so reservation history is preserved.",
+        )
+    return redirect(_safe_next_url(request, fallback='dashboard:room_list'))
+
+
+# ---------------------------------------------------------------------------
+# User Management (FR-07)
+# ---------------------------------------------------------------------------
+
+@staff_required
+def user_list(request):
+    """List registered users with search, user type, and active filters."""
+    query = request.GET.get('q', '').strip()
+    user_type = request.GET.get('user_type', '').strip()
+    active_filter = request.GET.get('active', '').strip().lower()
+
+    valid_user_types = {code for code, _ in Profile.USER_TYPES}
+
+    qs = (
+        User.objects.select_related('profile')
+        .annotate(reservation_count=Count('reservations'))
+        .order_by('-date_joined', 'username')
+    )
+
+    if query:
+        qs = qs.filter(
+            Q(username__icontains=query)
+            | Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+            | Q(email__icontains=query)
+        )
+    if user_type in valid_user_types:
+        qs = qs.filter(profile__user_type=user_type)
+    else:
+        user_type = ''
+
+    if active_filter == 'active':
+        qs = qs.filter(is_active=True)
+    elif active_filter == 'inactive':
+        qs = qs.filter(is_active=False)
+    else:
+        active_filter = ''
+
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    # Safely attach profile using get_profile() so users without a Profile (e.g. admin1) never crash
+    users = list(page_obj.object_list)
+    for u in users:
+        u.safe_profile = get_profile(u)
+
+    return render(request, 'dashboard/user_list.html', {
+        'page_title': 'Manage Users',
+        'query': query,
+        'user_type': user_type,
+        'user_type_choices': Profile.USER_TYPES,
+        'active_filter': active_filter,
+        'page_obj': page_obj,
+        'users': users,
+    })
+
+
+@staff_required
+@require_POST
+def user_toggle(request, pk):
+    """Activate or deactivate a user via POST. Admins cannot deactivate themselves."""
+    target_user = get_object_or_404(User, pk=pk)
+    if target_user.pk == request.user.pk:
+        messages.error(request, "You cannot deactivate your own account.")
+        return redirect(_safe_next_url(request, fallback='dashboard:user_list'))
+
+    target_user.is_active = not target_user.is_active
+    target_user.save(update_fields=['is_active'])
+    state_label = "activated" if target_user.is_active else "deactivated"
+    messages.success(request, f"User '{target_user.username}' has been {state_label}.")
+    return redirect(_safe_next_url(request, fallback='dashboard:user_list'))
+
+
+@staff_required
+@require_POST
+def user_delete(request, pk):
+    """Delete a user only if they have no reservations, are not the current admin,
+    and are not a superuser.
+    """
+    target_user = get_object_or_404(User, pk=pk)
+    if target_user.pk == request.user.pk:
+        messages.error(request, "You cannot delete your own account.")
+        return redirect(_safe_next_url(request, fallback='dashboard:user_list'))
+
+    if target_user.is_superuser:
+        messages.error(request, "Superuser accounts cannot be deleted from this page.")
+        return redirect(_safe_next_url(request, fallback='dashboard:user_list'))
+
+    username = target_user.username
+    try:
+        target_user.delete()
+        messages.success(request, f"User '{username}' has been deleted.")
+    except ProtectedError:
+        messages.error(
+            request,
+            f"Cannot delete '{username}' because they have existing reservations. "
+            "Deactivate the account instead so reservation history is preserved.",
+        )
+    return redirect(_safe_next_url(request, fallback='dashboard:user_list'))
