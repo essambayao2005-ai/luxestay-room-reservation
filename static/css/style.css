@@ -836,14 +836,14 @@ textarea:focus-visible,
   border-color: #D8C7A7;
 }
 
-/* Page fade-in */
+/* Page fade-in (no forwards/final transform so no lingering stacking context) */
 .fade-in-content {
-  animation: pageFadeIn 200ms ease-out forwards;
+  animation: pageFadeIn 200ms ease-out backwards;
 }
 
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* --------------------------------------------------------------------------
@@ -1513,3 +1513,13 @@ textarea:focus-visible,
 .text-maroon   { color: var(--maroon) !important; }
 .text-charcoal { color: var(--charcoal) !important; }
 .text-ink      { color: var(--ink) !important; }
+
+
+/* Explicit Bootstrap modal layering above sidebar/topbar (<1040) */
+.modal-backdrop {
+  z-index: 1050 !important;
+}
+
+.modal {
+  z-index: 1055 !important;
+}

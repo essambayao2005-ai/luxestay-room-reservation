@@ -115,40 +115,6 @@
     </div>
   </div>
 
-  <!-- Confirmation Modals for Pending Reservations -->
-  {% for res in reservations %}
-    {% if res.status == 'pending' %}
-    <div class="modal fade" id="cancelModal{{ res.pk }}" tabindex="-1"
-         aria-labelledby="cancelModalLabel{{ res.pk }}" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius: var(--radius-card); border: 1px solid var(--border);">
-          <div class="modal-header border-bottom-0 pb-0">
-            <h5 class="modal-title fw-bold" id="cancelModalLabel{{ res.pk }}">Cancel Reservation</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <p class="mb-0">
-              Are you sure you want to cancel your pending reservation for
-              <strong>{{ res.room.name }}</strong> on
-              <strong>{{ res.reservation_date|date:"M j, Y" }}</strong>
-              ({{ res.start_time|time:"g:i A" }} – {{ res.end_time|time:"g:i A" }})?
-            </p>
-          </div>
-          <div class="modal-footer border-top-0 pt-0">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Request</button>
-            <form method="post" action="{% url 'rooms:reservation_cancel' res.pk %}" class="m-0">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-maroon">
-                <i class="bi bi-x-circle"></i> Yes, Cancel
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-  {% endfor %}
-
   <!-- Pagination (10 per page) -->
   {% if page_obj.has_other_pages %}
   <nav aria-label="Reservations pagination">
@@ -216,4 +182,40 @@
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block modals %}
+  <!-- Confirmation Modals for Pending Reservations (direct children of <body>) -->
+  {% for res in reservations %}
+    {% if res.status == 'pending' %}
+    <div class="modal fade" id="cancelModal{{ res.pk }}" tabindex="-1"
+         aria-labelledby="cancelModalLabel{{ res.pk }}" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: var(--radius-card); border: 1px solid var(--border);">
+          <div class="modal-header border-bottom-0 pb-0">
+            <h5 class="modal-title fw-bold" id="cancelModalLabel{{ res.pk }}">Cancel Reservation</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-0">
+              Are you sure you want to cancel your pending reservation for
+              <strong>{{ res.room.name }}</strong> on
+              <strong>{{ res.reservation_date|date:"M j, Y" }}</strong>
+              ({{ res.start_time|time:"g:i A" }} – {{ res.end_time|time:"g:i A" }})?
+            </p>
+          </div>
+          <div class="modal-footer border-top-0 pt-0">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Request</button>
+            <form method="post" action="{% url 'rooms:reservation_cancel' res.pk %}" class="m-0">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-maroon">
+                <i class="bi bi-x-circle"></i> Yes, Cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
 {% endblock %}
