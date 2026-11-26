@@ -568,3 +568,183 @@ class ManageRoomsAndUsersTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn('inactive', resp.content.decode().lower())
         self.assertNotIn('_auth_user_id', self.client.session)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4E: Reports (History, Print, CSV Export) Tests
+# ---------------------------------------------------------------------------
+
+class ReportsAndExportTests(TestCase):
+    """Integration tests for /manage/reports/ and /manage/reports/export/."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            username='report_admin', password='pass', is_staff=True
+        )
+        self.student = User.objects.create_user(
+            username='report.student',
+            first_name='Maria',
+            last_name='Santos',
+            password='pass',
+        )
+        Profile.objects.create(
+            user=self.student,
+            user_type='student',
+            college_department='College of Education',
+            contact_number='09123456789',
+        )
+        self.other = User.objects.create_user(
+            username='report.faculty',
+            first_name='Pedro',
+            last_name='Reyes',
+            password='pass',
+        )
+
+        self.room1 = Room.objects.create(
+            name='Hall A', building='Main Building', room_type='lecture', capacity=50
+        )
+        self.room2 = Room.objects.create(
+            name='Lab B', building='IT Building', room_type='laboratory', capacity=30
+        )
+
+        self.today = timezone.localdate()
+        self.tomorrow = self.today + datetime.timedelta(days=1)
+        self.next_week = self.today + datetime.timedelta(days=7)
+
+        # Approved reservation on room1 tomorrow by student
+        self.res_approved = Reservation.objects.create(
+            room=self.room1,
+            requester=self.student,
+            processed_by=self.staff,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(11, 0),
+            purpose='Approved Seminar',
+            num_attendees=25,
+            status='approved',
+        )
+
+        # Declined reservation on room2 next_week by other (with formula-like purpose)
+        self.res_declined = Reservation.objects.create(
+            room=self.room2,
+            requester=self.other,
+            processed_by=self.staff,
+            reservation_date=self.next_week,
+            start_time=datetime.time(13, 0),
+            end_time=datetime.time(15, 0),
+            purpose='=cmd|calc',
+            num_attendees=10,
+            status='declined',
+            admin_remarks='Room under maintenance',
+        )
+
+        # Pending reservation on room1 tomorrow by student
+        self.res_pending = Reservation.objects.create(
+            room=self.room1,
+            requester=self.student,
+            reservation_date=self.tomorrow,
+            start_time=datetime.time(14, 0),
+            end_time=datetime.time(16, 0),
+            purpose='Pending Study Group',
+            num_attendees=15,
+            status='pending',
+        )
+
+    def test_non_staff_cannot_access_reports_or_export(self):
+        """Anonymous users redirect and non-staff receive 403 on reports and CSV export."""
+        for url in (reverse('dashboard:reports'), reverse('dashboard:reports_export')):
+            resp_anon = self.client.get(url)
+            self.assertEqual(resp_anon.status_code, 302)
+            self.assertIn('/accounts/login/', resp_anon['Location'])
+
+        self.client.force_login(self.student)
+        for url in (reverse('dashboard:reports'), reverse('dashboard:reports_export')):
+            resp_stud = self.client.get(url)
+            self.assertEqual(resp_stud.status_code, 403)
+
+    def test_filters_work_together_and_summary_counts_are_correct(self):
+        """Combining date, room, requester, and status filters narrows results and summary counts."""
+        self.client.force_login(self.staff)
+        url = reverse('dashboard:reports')
+
+        # Unfiltered summary
+        resp_all = self.client.get(url)
+        self.assertEqual(resp_all.status_code, 200)
+        self.assertEqual(resp_all.context['summary'], {
+            'total': 3,
+            'pending': 1,
+            'approved': 1,
+            'declined': 1,
+            'cancelled': 0,
+        })
+
+        # Combined filter matching only res_approved
+        resp_filtered = self.client.get(url, {
+            'date_from': self.tomorrow.isoformat(),
+            'date_to': self.tomorrow.isoformat(),
+            'room': self.room1.pk,
+            'requester': 'Maria',
+            'status': 'approved',
+        })
+        self.assertEqual(resp_filtered.status_code, 200)
+        self.assertEqual(resp_filtered.context['summary']['total'], 1)
+        self.assertEqual(resp_filtered.context['summary']['approved'], 1)
+        self.assertEqual([r.pk for r in resp_filtered.context['reservations']], [self.res_approved.pk])
+
+    def test_invalid_date_range_shows_error(self):
+        """When date_from > date_to, an error is shown and no results are returned."""
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse('dashboard:reports'), {
+            'date_from': self.next_week.isoformat(),
+            'date_to': self.today.isoformat(),
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('cannot be earlier than', resp.content.decode())
+        self.assertEqual(resp.context['summary']['total'], 0)
+
+    def test_csv_export_header_rows_and_formula_injection_neutralized(self):
+        """CSV export includes expected headers/rows and prefixes =,+,-,@ cells with a quote."""
+        import csv
+        import io
+
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse('dashboard:reports_export'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('text/csv', resp['Content-Type'])
+        self.assertIn(f'reservations_{self.today.isoformat()}.csv', resp['Content-Disposition'])
+
+        rows = list(csv.reader(io.StringIO(resp.content.decode('utf-8'))))
+        self.assertEqual(rows[0][0], 'Date')
+        self.assertEqual(rows[0][9], 'Purpose')
+        self.assertEqual(len(rows), 4)  # header + 3 reservations
+
+        purposes = [r[9] for r in rows[1:]]
+        self.assertIn("'=cmd|calc", purposes)
+        self.assertNotIn("=cmd|calc", purposes)
+
+    def test_print_view_shows_university_name_and_all_rows_beyond_screen_page(self):
+        """Print section includes MSU-SND header and all matching rows (even > 10) up to cap."""
+        # Add 10 more reservations so total = 13 (> 10 per screen page)
+        for i in range(10):
+            Reservation.objects.create(
+                room=self.room1,
+                requester=self.student,
+                reservation_date=self.tomorrow,
+                start_time=datetime.time(7, 0),
+                end_time=datetime.time(8, 0),
+                purpose=f'Extra Print Row {i}',
+                num_attendees=5,
+                status='pending',
+            )
+
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse('dashboard:reports'))
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode()
+
+        self.assertIn('Mindanao State University - Sultan Naga Dimaporo', content)
+        self.assertIn('Reservation Report', content)
+        # Screen page has 10, print_rows has all 13
+        self.assertEqual(len(resp.context['reservations']), 10)
+        self.assertEqual(len(resp.context['print_rows']), 13)
+        self.assertFalse(resp.context['print_capped'])
