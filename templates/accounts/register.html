@@ -1,356 +1,171 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Account | MSU-SND Room Reservation</title>
+{% extends 'accounts/auth_base.html' %}
 
-  <link rel="icon" type="image/png" href="{% static 'img/msu_logo.png' %}">
+{% block title %}Create Account | MSU-SND Room Reservation{% endblock %}
+{% block logo_chip_class %}auth-logo-chip--register{% endblock %}
+{% block card_class %}auth-card--register{% endblock %}
 
-  <!-- Inter Google Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+{% block card_content %}
+  <h2 class="auth-card-title">Create your account</h2>
+  <p class="auth-card-sub">Reserve rooms for classes, meetings, and organization activities.</p>
 
-  <!-- Bootstrap 5.3.3 CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-
-  <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
-  <!-- Campus Design System -->
-  <link rel="stylesheet" href="{% static 'css/style.css' %}">
-
-  <style>
-    /* ---- Same split-screen layout as login.html ---- */
-    .auth-wrapper {
-      display: flex;
-      min-height: 100vh;
-    }
-    .auth-panel-left {
-      flex: 0 0 420px;
-      background-color: var(--maroon);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 40px;
-      position: relative;
-      overflow: hidden;
-    }
-    .auth-panel-left::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at 20% 30%, rgba(233,221,200,.12) 0%, transparent 60%),
-        radial-gradient(circle at 80% 80%, rgba(233,221,200,.08) 0%, transparent 50%);
-      pointer-events: none;
-    }
-    .auth-logo-chip {
-      background: #fff;
-      border-radius: 50%;
-      width: 112px;
-      height: 112px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 24px rgba(0,0,0,.18);
-      margin-bottom: 28px;
-      flex-shrink: 0;
-    }
-    .auth-logo-chip img { width: 80px; height: 80px; object-fit: contain; }
-    .auth-panel-left h1 {
-      color: #fff;
-      font-size: 26px;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 6px;
-      letter-spacing: -0.01em;
-    }
-    .auth-panel-left .auth-university {
-      color: rgba(255,255,255,.85);
-      font-size: 13px;
-      font-weight: 500;
-      text-align: center;
-      line-height: 1.4;
-      margin-bottom: 20px;
-    }
-    .auth-panel-left .auth-tagline {
-      color: var(--champagne);
-      font-size: 13px;
-      text-align: center;
-      opacity: .9;
-    }
-    .auth-panel-right {
-      flex: 1;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 48px 24px;
-      background-color: var(--warm-gray);
-      position: relative;
-      overflow: hidden;
-      overflow-y: auto;
-    }
-    .auth-panel-right::before {
-      content: '';
-      position: absolute;
-      width: 500px; height: 500px;
-      border-radius: 50%;
-      background: rgba(100,30,43,.07);
-      filter: blur(80px);
-      bottom: -100px; right: -100px;
-      pointer-events: none;
-    }
-    .auth-card {
-      background: var(--glass-surface-bg);
-      backdrop-filter: blur(16px) saturate(120%);
-      -webkit-backdrop-filter: blur(16px) saturate(120%);
-      border: 1px solid var(--glass-surface-border);
-      box-shadow: var(--shadow-glass), var(--shadow-inset-glass);
-      border-radius: var(--radius-card);
-      padding: 40px;
-      width: 100%;
-      max-width: 500px;
-      position: relative;
-      z-index: 1;
-      margin: auto 0;
-    }
-    @supports not (backdrop-filter: blur(1px)) {
-      .auth-card { background: rgba(255,255,255,.96); }
-    }
-    .auth-card-title { font-size: 22px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
-    .auth-card-sub   { font-size: 13px; color: var(--charcoal); margin-bottom: 28px; }
-
-    /* Password show/hide toggle */
-    .input-pw-wrapper { position: relative; }
-    .btn-pw-toggle {
-      position: absolute; right: 12px; top: 50%;
-      transform: translateY(-50%);
-      background: none; border: none; padding: 0;
-      color: var(--charcoal); cursor: pointer; font-size: 16px; line-height: 1;
-    }
-    .btn-pw-toggle:focus-visible {
-      outline: 2px solid var(--maroon); outline-offset: 2px; border-radius: 4px;
-    }
-
-    @media (max-width: 768px) {
-      .auth-wrapper { flex-direction: column; }
-      .auth-panel-left { flex: none; padding: 32px 24px; min-height: auto; }
-      .auth-logo-chip { width: 72px; height: 72px; margin-bottom: 16px; }
-      .auth-logo-chip img { width: 52px; height: 52px; }
-      .auth-panel-left h1 { font-size: 20px; }
-      .auth-card { padding: 28px 20px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="auth-wrapper">
-
-    <!-- Left: Maroon brand panel -->
-    <div class="auth-panel-left">
-      <div class="auth-logo-chip">
-        <img src="{% static 'img/msu_logo.png' %}" alt="MSU-SND Logo">
-      </div>
-      <h1>MSU-SND</h1>
-      <p class="auth-university">
-        Mindanao State University<br>Sultan Naga Dimaporo
-      </p>
-      <p class="auth-tagline">
-        Room Checker &amp; Reservation System<br>
-        <small style="opacity:.75;">Join the campus scheduling community.</small>
-      </p>
-    </div>
-
-    <!-- Right: Glass registration card -->
-    <div class="auth-panel-right">
-      <div class="auth-card">
-        <h2 class="auth-card-title">Create Your Account</h2>
-        <p class="auth-card-sub">Fill in the form below to register as a student or faculty member.</p>
-
-        <!-- Non-field errors -->
-        {% if form.non_field_errors %}
-        <div class="custom-alert custom-alert-error mb-3" role="alert">
-          <i class="bi bi-exclamation-circle-fill"></i>
-          <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
-        </div>
-        {% endif %}
-
-        <form method="post" action="{% url 'accounts:register' %}" novalidate>
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ next }}">
-
-          <!-- Username -->
-          <div class="mb-3">
-            <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold">Username</label>
-            <input type="text" name="{{ form.username.html_name }}"
-                   id="{{ form.username.id_for_label }}"
-                   class="form-control {% if form.username.errors %}is-invalid{% endif %}"
-                   value="{{ form.username.value|default:'' }}"
-                   placeholder="Choose a username" autocomplete="username" autofocus>
-            {% if form.username.errors %}
-            <div class="invalid-feedback">{{ form.username.errors|join:", " }}</div>
-            {% endif %}
-          </div>
-
-          <!-- First name + Last name in a row -->
-          <div class="row g-3 mb-3">
-            <div class="col-sm-6">
-              <label for="{{ form.first_name.id_for_label }}" class="form-label fw-semibold">First Name</label>
-              <input type="text" name="{{ form.first_name.html_name }}"
-                     id="{{ form.first_name.id_for_label }}"
-                     class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
-                     value="{{ form.first_name.value|default:'' }}"
-                     placeholder="First name" autocomplete="given-name">
-              {% if form.first_name.errors %}
-              <div class="invalid-feedback">{{ form.first_name.errors|join:", " }}</div>
-              {% endif %}
-            </div>
-            <div class="col-sm-6">
-              <label for="{{ form.last_name.id_for_label }}" class="form-label fw-semibold">Last Name</label>
-              <input type="text" name="{{ form.last_name.html_name }}"
-                     id="{{ form.last_name.id_for_label }}"
-                     class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
-                     value="{{ form.last_name.value|default:'' }}"
-                     placeholder="Last name" autocomplete="family-name">
-              {% if form.last_name.errors %}
-              <div class="invalid-feedback">{{ form.last_name.errors|join:", " }}</div>
-              {% endif %}
-            </div>
-          </div>
-
-          <!-- Email -->
-          <div class="mb-3">
-            <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">Email Address</label>
-            <input type="email" name="{{ form.email.html_name }}"
-                   id="{{ form.email.id_for_label }}"
-                   class="form-control {% if form.email.errors %}is-invalid{% endif %}"
-                   value="{{ form.email.value|default:'' }}"
-                   placeholder="you@example.com" autocomplete="email">
-            {% if form.email.errors %}
-            <div class="invalid-feedback">{{ form.email.errors|join:", " }}</div>
-            {% endif %}
-          </div>
-
-          <!-- User Type -->
-          <div class="mb-3">
-            <label for="{{ form.user_type.id_for_label }}" class="form-label fw-semibold">User Type</label>
-            <select name="{{ form.user_type.html_name }}"
-                    id="{{ form.user_type.id_for_label }}"
-                    class="form-select {% if form.user_type.errors %}is-invalid{% endif %}">
-              {% for val, label in form.fields.user_type.choices %}
-              <option value="{{ val }}" {% if form.user_type.value == val %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-            {% if form.user_type.errors %}
-            <div class="invalid-feedback">{{ form.user_type.errors|join:", " }}</div>
-            {% endif %}
-          </div>
-
-          <!-- College / Department -->
-          <div class="mb-3">
-            <label for="{{ form.college_department.id_for_label }}" class="form-label fw-semibold">College / Department</label>
-            <input type="text" name="{{ form.college_department.html_name }}"
-                   id="{{ form.college_department.id_for_label }}"
-                   class="form-control {% if form.college_department.errors %}is-invalid{% endif %}"
-                   value="{{ form.college_department.value|default:'' }}"
-                   placeholder="e.g. College of Engineering" autocomplete="organization">
-            {% if form.college_department.errors %}
-            <div class="invalid-feedback">{{ form.college_department.errors|join:", " }}</div>
-            {% endif %}
-          </div>
-
-          <!-- Contact Number -->
-          <div class="mb-3">
-            <label for="{{ form.contact_number.id_for_label }}" class="form-label fw-semibold">Contact Number</label>
-            <input type="text" name="{{ form.contact_number.html_name }}"
-                   id="{{ form.contact_number.id_for_label }}"
-                   class="form-control {% if form.contact_number.errors %}is-invalid{% endif %}"
-                   value="{{ form.contact_number.value|default:'' }}"
-                   placeholder="09xxxxxxxxx" autocomplete="tel">
-            {% if form.contact_number.errors %}
-            <div class="invalid-feedback">{{ form.contact_number.errors|join:", " }}</div>
-            {% endif %}
-          </div>
-
-          <!-- Password -->
-          <div class="mb-3">
-            <label for="{{ form.password1.id_for_label }}" class="form-label fw-semibold">Password</label>
-            <div class="input-pw-wrapper">
-              <input type="password" name="{{ form.password1.html_name }}"
-                     id="{{ form.password1.id_for_label }}"
-                     class="form-control {% if form.password1.errors %}is-invalid{% endif %}"
-                     placeholder="Create a password" autocomplete="new-password">
-              <button type="button" class="btn-pw-toggle" aria-label="Toggle password visibility"
-                      onclick="togglePassword('{{ form.password1.id_for_label }}', this)">
-                <i class="bi bi-eye" aria-hidden="true"></i>
-              </button>
-            </div>
-            {% if form.password1.errors %}
-            <div class="text-danger mt-1" style="font-size:13px;">{{ form.password1.errors|join:", " }}</div>
-            {% endif %}
-            <!-- Password rules hint -->
-            <div class="text-small text-charcoal mt-1" style="font-size:12px;">
-              Must be at least 8 characters. Cannot be purely numeric or too common.
-            </div>
-          </div>
-
-          <!-- Confirm Password -->
-          <div class="mb-4">
-            <label for="{{ form.password2.id_for_label }}" class="form-label fw-semibold">Confirm Password</label>
-            <div class="input-pw-wrapper">
-              <input type="password" name="{{ form.password2.html_name }}"
-                     id="{{ form.password2.id_for_label }}"
-                     class="form-control {% if form.password2.errors %}is-invalid{% endif %}"
-                     placeholder="Confirm your password" autocomplete="new-password">
-              <button type="button" class="btn-pw-toggle" aria-label="Toggle confirm password visibility"
-                      onclick="togglePassword('{{ form.password2.id_for_label }}', this)">
-                <i class="bi bi-eye" aria-hidden="true"></i>
-              </button>
-            </div>
-            {% if form.password2.errors %}
-            <div class="text-danger mt-1" style="font-size:13px;">{{ form.password2.errors|join:", " }}</div>
-            {% endif %}
-          </div>
-
-          <button type="submit" class="btn btn-maroon w-100 py-2">
-            <i class="bi bi-person-check me-1"></i> Create Account
-          </button>
-        </form>
-
-        <p class="text-center text-small mt-4 mb-0">
-          Already have an account?
-          <a href="{% url 'accounts:login' %}{% if next %}?next={{ next }}{% endif %}" class="text-maroon fw-semibold">
-            Sign in here
-          </a>
-        </p>
-      </div>
-    </div>
-
+  <!-- Non-field errors -->
+  {% if form.non_field_errors %}
+  <div class="custom-alert custom-alert-error mb-3" role="alert">
+    <i class="bi bi-exclamation-circle-fill"></i>
+    <div>{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>
   </div>
+  {% endif %}
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-  <script>
-    /**
-     * Toggle the visibility of a password field.
-     * Plain JS — no library dependency (project brief constraint).
-     */
-    function togglePassword(fieldId, btn) {
-      var field = document.getElementById(fieldId);
-      var icon = btn.querySelector('i');
-      if (!field) return;
-      if (field.type === 'password') {
-        field.type = 'text';
-        icon.className = 'bi bi-eye-slash';
-        btn.setAttribute('aria-label', 'Hide password');
-      } else {
-        field.type = 'password';
-        icon.className = 'bi bi-eye';
-        btn.setAttribute('aria-label', 'Show password');
-      }
-    }
-  </script>
-</body>
-</html>
+  <form method="post" action="{% url 'accounts:register' %}" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+
+    <div class="row g-3">
+      <!-- Username -->
+      <div class="col-12 col-md-6 auth-stagger-row" style="--row-index: 0;">
+        <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold">Username</label>
+        <input type="text" name="{{ form.username.html_name }}"
+               id="{{ form.username.id_for_label }}"
+               class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+               value="{{ form.username.value|default:'' }}"
+               placeholder="Choose a username" autocomplete="username">
+        {% if form.username.errors %}
+        <div class="invalid-feedback">{{ form.username.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <!-- First Name -->
+      <div class="col-12 col-md-6 auth-stagger-row" style="--row-index: 1;">
+        <label for="{{ form.first_name.id_for_label }}" class="form-label fw-semibold">First Name</label>
+        <input type="text" name="{{ form.first_name.html_name }}"
+               id="{{ form.first_name.id_for_label }}"
+               class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
+               value="{{ form.first_name.value|default:'' }}"
+               placeholder="First name" autocomplete="given-name">
+        {% if form.first_name.errors %}
+        <div class="invalid-feedback">{{ form.first_name.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Last Name -->
+      <div class="col-12 col-md-6 auth-stagger-row" style="--row-index: 2;">
+        <label for="{{ form.last_name.id_for_label }}" class="form-label fw-semibold">Last Name</label>
+        <input type="text" name="{{ form.last_name.html_name }}"
+               id="{{ form.last_name.id_for_label }}"
+               class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
+               value="{{ form.last_name.value|default:'' }}"
+               placeholder="Last name" autocomplete="family-name">
+        {% if form.last_name.errors %}
+        <div class="invalid-feedback">{{ form.last_name.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Email -->
+      <div class="col-12 col-md-6 auth-stagger-row" style="--row-index: 3;">
+        <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">Email Address</label>
+        <input type="email" name="{{ form.email.html_name }}"
+               id="{{ form.email.id_for_label }}"
+               class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+               value="{{ form.email.value|default:'' }}"
+               placeholder="you@example.com" autocomplete="email">
+        {% if form.email.errors %}
+        <div class="invalid-feedback">{{ form.email.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <!-- User Type -->
+      <div class="col-12 col-md-6 auth-stagger-row" style="--row-index: 4;">
+        <label for="{{ form.user_type.id_for_label }}" class="form-label fw-semibold">User Type</label>
+        <select name="{{ form.user_type.html_name }}"
+                id="{{ form.user_type.id_for_label }}"
+                class="form-select {% if form.user_type.errors %}is-invalid{% endif %}">
+          {% for val, label in form.fields.user_type.choices %}
+          <option value="{{ val }}" {% if form.user_type.value == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if form.user_type.errors %}
+        <div class="invalid-feedback">{{ form.user_type.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <!-- College / Department -->
+      <div class="col-12 col-md-6 auth-stagger-row" style="--row-index: 5;">
+        <label for="{{ form.college_department.id_for_label }}" class="form-label fw-semibold">College / Department</label>
+        <input type="text" name="{{ form.college_department.html_name }}"
+               id="{{ form.college_department.id_for_label }}"
+               class="form-control {% if form.college_department.errors %}is-invalid{% endif %}"
+               value="{{ form.college_department.value|default:'' }}"
+               placeholder="e.g. College of Engineering" autocomplete="organization">
+        {% if form.college_department.errors %}
+        <div class="invalid-feedback">{{ form.college_department.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Contact Number -->
+      <div class="col-12 auth-stagger-row" style="--row-index: 6;">
+        <label for="{{ form.contact_number.id_for_label }}" class="form-label fw-semibold">Contact Number</label>
+        <input type="text" name="{{ form.contact_number.html_name }}"
+               id="{{ form.contact_number.id_for_label }}"
+               class="form-control {% if form.contact_number.errors %}is-invalid{% endif %}"
+               value="{{ form.contact_number.value|default:'' }}"
+               placeholder="09xxxxxxxxx" autocomplete="tel">
+        {% if form.contact_number.errors %}
+        <div class="invalid-feedback">{{ form.contact_number.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Password -->
+      <div class="col-12 col-md-6 auth-stagger-row" style="--row-index: 7;">
+        <label for="{{ form.password1.id_for_label }}" class="form-label fw-semibold">Password</label>
+        <div class="input-pw-wrapper">
+          <input type="password" name="{{ form.password1.html_name }}"
+                 id="{{ form.password1.id_for_label }}"
+                 class="form-control {% if form.password1.errors %}is-invalid{% endif %}"
+                 placeholder="Create a password" autocomplete="new-password">
+          <button type="button" class="btn-pw-toggle" aria-label="Toggle password visibility"
+                  onclick="togglePassword('{{ form.password1.id_for_label }}', this)">
+            <i class="bi bi-eye" aria-hidden="true"></i>
+          </button>
+        </div>
+        {% if form.password1.errors %}
+        <div class="text-danger mt-1" style="font-size:13px;">{{ form.password1.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Confirm Password -->
+      <div class="col-12 col-md-6 auth-stagger-row" style="--row-index: 8;">
+        <label for="{{ form.password2.id_for_label }}" class="form-label fw-semibold">Confirm Password</label>
+        <div class="input-pw-wrapper">
+          <input type="password" name="{{ form.password2.html_name }}"
+                 id="{{ form.password2.id_for_label }}"
+                 class="form-control {% if form.password2.errors %}is-invalid{% endif %}"
+                 placeholder="Confirm your password" autocomplete="new-password">
+          <button type="button" class="btn-pw-toggle" aria-label="Toggle confirm password visibility"
+                  onclick="togglePassword('{{ form.password2.id_for_label }}', this)">
+            <i class="bi bi-eye" aria-hidden="true"></i>
+          </button>
+        </div>
+        {% if form.password2.errors %}
+        <div class="text-danger mt-1" style="font-size:13px;">{{ form.password2.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="text-small text-charcoal mt-2 mb-4 auth-stagger-row" style="font-size:12px; --row-index: 9;">
+      Must be at least 8 characters. Cannot be purely numeric or too common.
+    </div>
+
+    <div class="auth-stagger-row" style="--row-index: 10;">
+      <button type="submit" class="btn btn-maroon w-100 py-2">
+        <i class="bi bi-person-check me-1"></i> Create Account
+      </button>
+    </div>
+  </form>
+
+  <p class="text-center text-small mt-4 mb-0 auth-stagger-row" style="--row-index: 11;">
+    Already have an account?
+    <a href="{% url 'accounts:login' %}{% if next %}?next={{ next }}{% endif %}" class="text-maroon fw-semibold">
+      Sign in
+    </a>
+  </p>
+{% endblock %}
