@@ -310,3 +310,31 @@ Before proceeding with code implementation in Phase 2, please confirm:
    - Please confirm that Apache and MySQL services are started in your XAMPP Control Panel and that the database `luxestay_db` exists before we execute database commands in Phase 2.
 3. **Superuser Profile Handling**:
    - When superusers (such as `admin1`) are created via `createsuperuser`, they have no `Profile` record. We will configure the system to handle this gracefully (displaying "Administrator" and safe defaults). Should the admin dashboard also allow superusers to attach a campus department to their account later?
+
+
+---
+
+## 7. Phase Status Summary
+
+| Phase | Scope | Status | Remaining / Notes |
+|---|---|---|---|
+| **Phase 1** | Analysis and Planning | **Done** | Baseline audit completed. |
+| **Phase 2** | Database and Backend Preparation | **Done** | Services, availability queries, permissions, `seed_data` command. |
+| **Phase 3** | UI/UX and Frontend (Brief Phase A) | **Done** | App shell, Soft Glass Campus CSS, Cards view, Availability Board. |
+| **Phase 4** | System Features (Brief Phases B, C, D) | **Done** | Accounts (4A + auth redesign), Requester Reservations (4B), Admin Dashboard & Reservations (4C), Rooms & Users (4D), Reports & CSV (4E). |
+| **Phase 5** | Integration & DB Verification (Brief Phase E - Part 1) | **Done** | Navigation integration (5A), E2E & query-count tests (5B), `check_data` & idempotency verification (5C). |
+| **Phase 6** | Testing and Debugging (Brief Phase E - Part 2) | **Pending** | Final responsive (360px), WCAG AA contrast, and cross-browser polish pass; fix any edge-case UI bugs found during manual QA. |
+| **Phase 7** | Finalization & Handover (Brief Phase E - Part 3) | **Pending** | Remove `/design-preview/` route/template, update `requirements.txt` (`pip freeze`), write `README.md` setup guide, and prepare the 5-minute FR-01 to FR-09 defense demo script. |
+
+---
+
+## 8. Pre-deployment Notes (Settings Audit — Do Not Change for Local Dev)
+
+Before deploying outside a local XAMPP environment, review these settings in `luxestay/settings.py` and `luxestay/urls.py`:
+
+- **`DEBUG`**: Currently `True`. Must be set to `False` in production so stack traces and the `/accounts/login/` demo-accounts hint are hidden.
+- **`ALLOWED_HOSTS`**: Currently `[]`. Must include the production domain or server IP when `DEBUG = False`.
+- **`SECRET_KEY`**: Currently uses the local development key in `settings.py`. Move to an environment variable (and rotate) before production deployment.
+- **CSRF & Session Cookie Flags**: Enable `CSRF_COOKIE_SECURE = True`, `SESSION_COOKIE_SECURE = True`, and `SECURE_SSL_REDIRECT = True` when serving over HTTPS (`SESSION_COOKIE_HTTPONLY = True` is already Django's default).
+- **Static & Media Serving**: Configure `STATIC_ROOT` and run `python manage.py collectstatic` (served via Nginx/Apache or WhiteNoise), and configure the web server to serve `MEDIA_ROOT` (`/media/`) since `static(settings.MEDIA_URL, ...)` in `luxestay/urls.py` only runs when `DEBUG = True`.
+- **MariaDB 10.4 / Django 4.2 Constraint**: XAMPP's MariaDB 10.4.32 is **not** supported by Django 5.1+. Keep Django pinned to `4.2.x` (`4.2.30`), or upgrade MariaDB to `10.5+` before upgrading Django.
