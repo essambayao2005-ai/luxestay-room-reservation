@@ -1215,3 +1215,94 @@ class RequesterReservationViewTests(TestCase):
         self.assertRedirects(resp_post, self.reverse('rooms:my_reservations'))
         pending_res.refresh_from_db()
         self.assertEqual(pending_res.status, 'cancelled')
+
+
+# ---------------------------------------------------------------------------
+# Phase 5C: check_data Management Command Tests
+# ---------------------------------------------------------------------------
+
+class CheckDataCommandTests(TestCase):
+    """Tests for `python manage.py check_data` (read-only audit)."""
+
+    def test_clean_database_reports_no_errors_or_warnings(self):
+        """With valid room, user+profile, and reservation, check_data reports 0 errors and 0 warnings."""
+        import io
+        from django.core.management import call_command
+
+        staff = User.objects.create_user(username='cd_staff', password='pass', is_staff=True)
+        Profile.objects.create(user=staff, user_type='faculty', college_department='CCS')
+        room = Room.objects.create(name='CD Room 1', building='Main', capacity=30, is_active=True)
+        tomorrow = timezone.localdate() + datetime.timedelta(days=1)
+        Reservation.objects.create(
+            room=room, requester=staff, processed_by=staff,
+            reservation_date=tomorrow, start_time=datetime.time(9, 0),
+            end_time=datetime.time(11, 0), purpose='Valid', num_attendees=10, status='approved',
+        )
+
+        out = io.StringIO()
+        call_command('check_data', stdout=out)
+        output = out.getvalue()
+        self.assertIn('0 ERROR(s), 0 WARN(s).', output)
+
+    def test_invalid_data_reported_and_database_unchanged(self):
+        """check_data reports ERRORs/WARNs, exits non-zero, and never mutates the database."""
+        import io
+        from django.core.management import call_command
+
+        user_no_prof = User.objects.create_user(username='no_prof_user', password='pass')
+        user_bad_prof = User.objects.create_user(username='bad_prof_user', password='pass')
+        Profile.objects.create(user=user_bad_prof, user_type='alien')
+
+        bad_room = Room.objects.create(
+            name='Luxe Ocean Suite', building='', capacity=0, is_active=True, image='rooms/nonexistent.png'
+        )
+        yesterday = timezone.localdate() - datetime.timedelta(days=1)
+
+        # Bad time order + unknown status
+        Reservation.objects.create(
+            room=bad_room, requester=user_no_prof, reservation_date=yesterday,
+            start_time=datetime.time(14, 0), end_time=datetime.time(12, 0),
+            purpose='Bad Time', num_attendees=1, status='weird_status',
+        )
+        # Overlapping approved reservations without processed_by
+        Reservation.objects.create(
+            room=bad_room, requester=user_no_prof, reservation_date=yesterday,
+            start_time=datetime.time(9, 0), end_time=datetime.time(11, 0),
+            purpose='Overlap 1', num_attendees=1, status='approved',
+        )
+        Reservation.objects.create(
+            room=bad_room, requester=user_no_prof, reservation_date=yesterday,
+            start_time=datetime.time(10, 0), end_time=datetime.time(12, 0),
+            purpose='Overlap 2', num_attendees=1, status='approved',
+        )
+        # Past pending + declined without remarks
+        Reservation.objects.create(
+            room=bad_room, requester=user_no_prof, reservation_date=yesterday,
+            start_time=datetime.time(13, 0), end_time=datetime.time(14, 0),
+            purpose='Past Pending', num_attendees=1, status='pending',
+        )
+        Reservation.objects.create(
+            room=bad_room, requester=user_no_prof, reservation_date=yesterday,
+            start_time=datetime.time(15, 0), end_time=datetime.time(16, 0),
+            purpose='Declined No Remarks', num_attendees=1, status='declined', admin_remarks='',
+        )
+
+        counts_before = (Room.objects.count(), Reservation.objects.count(), User.objects.count(), Profile.objects.count())
+
+        out = io.StringIO()
+        with self.assertRaises(SystemExit) as cm:
+            call_command('check_data', stdout=out)
+        self.assertEqual(cm.exception.code, 1)
+
+        output = out.getvalue()
+        self.assertIn('[ERROR] Reservations with end_time <= start_time', output)
+        self.assertIn('[ERROR] Overlapping approved reservations', output)
+        self.assertIn('[ERROR] Reservations with unknown status', output)
+        self.assertIn('[ERROR] Profiles with unknown user_type', output)
+        self.assertIn('[WARN]  Users without a Profile (usernames)', output)
+        self.assertIn('no_prof_user', output)
+        self.assertIn('[WARN]  Leftover legacy hotel rooms', output)
+
+        # Strictly read-only: counts unchanged
+        counts_after = (Room.objects.count(), Reservation.objects.count(), User.objects.count(), Profile.objects.count())
+        self.assertEqual(counts_before, counts_after)
