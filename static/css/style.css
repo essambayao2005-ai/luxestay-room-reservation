@@ -1524,3 +1524,285 @@ textarea:focus-visible,
 .modal {
   z-index: 1055 !important;
 }
+
+
+/* ==========================================================================
+   AUTH PAGES (Login & Register)
+   Full-screen static blurred MSU background, centered glass card, and intro.
+   ========================================================================== */
+:root {
+  --intro-fade: 0.6s;
+  --intro-hold: 0.6s;
+  --intro-move: 0.8s;
+  --intro-card: 0.7s;
+  --intro-stagger: 60ms;
+  --brand-shift: 0px;
+}
+
+.auth-bg {
+  position: fixed;
+  inset: -24px;
+  z-index: 0;
+  background-color: var(--maroon);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at center, rgba(40, 10, 16, 0.35) 0%, rgba(40, 10, 16, 0.65) 100%),
+    rgba(40, 10, 16, 0.50);
+}
+
+.auth-shell {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 20px;
+}
+
+/* Brand block above the card */
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--white);
+  text-shadow: 0 2px 12px rgba(20, 4, 8, 0.45);
+}
+
+.auth-logo-chip {
+  background: var(--white);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(20, 4, 8, 0.32);
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.auth-logo-chip--login {
+  width: 96px;
+  height: 96px;
+}
+
+.auth-logo-chip--login img {
+  width: 68px;
+  height: auto;
+  object-fit: contain;
+}
+
+.auth-logo-chip--register {
+  width: 72px;
+  height: 72px;
+}
+
+.auth-logo-chip--register img {
+  width: 50px;
+  height: auto;
+  object-fit: contain;
+}
+
+.auth-brand-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--white);
+  margin: 0 0 2px;
+}
+
+.auth-brand-caption {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+/* Centered frosted glass card */
+.auth-card {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(30, 6, 12, 0.35);
+  padding: 32px;
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .auth-card {
+    background: rgba(255, 255, 255, 0.95);
+  }
+}
+
+.auth-card--login {
+  max-width: 420px;
+}
+
+.auth-card--register {
+  max-width: 620px;
+}
+
+.auth-card-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+
+.auth-card-sub {
+  font-size: 13px;
+  color: var(--charcoal);
+  margin: 0 0 24px;
+}
+
+.auth-card .form-control,
+.auth-card .form-select {
+  background-color: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  min-height: 44px;
+}
+
+.input-pw-wrapper {
+  position: relative;
+}
+
+.input-pw-wrapper .form-control {
+  padding-right: 42px;
+}
+
+.auth-footer {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 6px rgba(20, 4, 8, 0.45);
+  text-align: center;
+  margin: 0;
+}
+
+.demo-hint {
+  background: var(--status-pending-bg);
+  border: 1px solid rgba(122, 90, 30, 0.2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--status-pending-text);
+  margin-top: 16px;
+}
+
+/* Intro animation state machine (no-JS shows final state) */
+html.auth-intro-pending .auth-brand,
+html.auth-intro-pending .auth-card,
+html.auth-intro-pending .auth-footer {
+  opacity: 0;
+}
+
+html.auth-intro-running .auth-brand {
+  will-change: transform, opacity;
+  animation:
+    authBrandFade var(--intro-fade) ease-out forwards,
+    authBrandMove var(--intro-move) ease-in-out calc(var(--intro-fade) + var(--intro-hold)) forwards;
+}
+
+html.auth-intro-running .auth-card {
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: authCardRise var(--intro-card) ease-out calc(var(--intro-fade) + var(--intro-hold) + var(--intro-move) - 0.2s) forwards;
+}
+
+html.auth-intro-running .auth-stagger-row {
+  opacity: 0;
+  animation: authRowFade 0.35s ease-out forwards;
+  animation-delay: calc(var(--intro-fade) + var(--intro-hold) + var(--intro-move) + 0.15s + (var(--row-index, 0) * var(--intro-stagger)));
+}
+
+html.auth-intro-running .auth-footer {
+  opacity: 0;
+  animation: authRowFade 0.4s ease-out calc(var(--intro-fade) + var(--intro-hold) + var(--intro-move) + 0.2s) forwards;
+}
+
+html.auth-intro-quick .auth-card {
+  animation: authQuickFade 250ms ease-out backwards;
+}
+
+@keyframes authBrandFade {
+  from {
+    opacity: 0;
+    transform: translateY(var(--brand-shift)) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(var(--brand-shift)) scale(1.15);
+  }
+}
+
+@keyframes authBrandMove {
+  from {
+    transform: translateY(var(--brand-shift)) scale(1.15);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes authCardRise {
+  from {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authRowFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authQuickFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (max-width: 575.98px) {
+  .auth-card {
+    padding: 24px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.auth-intro-pending .auth-brand,
+  html.auth-intro-pending .auth-card,
+  html.auth-intro-pending .auth-footer,
+  html.auth-intro-running .auth-brand,
+  html.auth-intro-running .auth-card,
+  html.auth-intro-running .auth-stagger-row,
+  html.auth-intro-running .auth-footer {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    will-change: auto !important;
+  }
+}
