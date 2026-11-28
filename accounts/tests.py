@@ -270,3 +270,43 @@ class ProfileViewTests(TestCase):
         self.assertEqual(self.user.first_name, 'Updated')
         self.assertEqual(self.user.email, 'updated@example.com')
         self.assertEqual(self.user.profile.user_type, 'faculty')
+
+
+class AuthTemplateVisualTests(TestCase):
+    """Tests for the redesigned login and register pages."""
+
+    def test_login_page_renders_with_fields_csrf_and_background(self):
+        """GET /accounts/login/ returns 200 with username, password, csrf, and msu_bg.jpg."""
+        resp = self.client.get(reverse('accounts:login'))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('csrfmiddlewaretoken', html)
+        self.assertIn('name="username"', html)
+        self.assertIn('name="password"', html)
+        self.assertIn('msu_bg.jpg', html)
+        self.assertIn('MSU-SND Room Reservation', html)
+
+    def test_register_page_renders_with_all_fields_csrf_and_background(self):
+        """GET /accounts/register/ returns 200 with all 9 fields, csrf, and msu_bg.jpg."""
+        resp = self.client.get(reverse('accounts:register'))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('csrfmiddlewaretoken', html)
+        for field in (
+            'username', 'first_name', 'last_name', 'email',
+            'user_type', 'college_department', 'contact_number',
+            'password1', 'password2',
+        ):
+            self.assertIn(f'name="{field}"', html)
+        self.assertIn('msu_bg.jpg', html)
+
+    def test_failed_login_rerenders_with_error_and_skips_intro(self):
+        """A failed login re-renders the page with the error message and data-skip-intro=1."""
+        resp = self.client.post(reverse('accounts:login'), {
+            'username': 'nonexistent',
+            'password': 'wrongpassword',
+        })
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn('data-skip-intro="1"', html)
+        self.assertIn('Please enter a correct username and password', html)
